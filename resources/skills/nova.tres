@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "nova"
+display_name = "Tán Xạ Nova"
+skill_type = "nova"
+max_level = 5
+base_damage = 5.0
+damage_per_level = 3.0
+base_cooldown = 1.1
+projectile_speed = 250.0
+base_radius = 55.0
+radius_per_level = 5.0
+color = Color(1.0, 0.9, 0.1, 1)

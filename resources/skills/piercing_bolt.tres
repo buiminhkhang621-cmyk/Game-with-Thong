@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "bolt"
+display_name = "Đạn Xuyên"
+skill_type = "projectile"
+max_level = 5
+base_damage = 9.0
+damage_per_level = 3.0
+base_cooldown = 1.1
+projectile_speed = 380.0
+base_radius = 55.0
+radius_per_level = 5.0
+color = Color(0.5, 0.85, 1.0, 1)

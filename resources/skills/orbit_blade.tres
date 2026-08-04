@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "orbit"
+display_name = "Kiếm Xoay"
+skill_type = "orbit"
+max_level = 5
+base_damage = 6.0
+damage_per_level = 2.0
+base_cooldown = 1.0
+projectile_speed = 380.0
+base_radius = 55.0
+radius_per_level = 5.0
+color = Color(0.94, 0.79, 0.37, 1)

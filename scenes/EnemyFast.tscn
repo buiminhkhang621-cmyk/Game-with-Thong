@@ -1,0 +1,7 @@
+[gd_scene format=3 uid="uid://dgy5aqdgw6e7p"]
+
+[ext_resource type="Script" path="res://scripts/EnemyFast.gd" id="1"]
+
+[node name="EnemyFast" type="CharacterBody2D" unique_id=1769957075]
+script = ExtResource("1")
+
