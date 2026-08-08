@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 id = "bolt"
-display_name = "Đạn Xuyên"
+display_name = "Piercing Bolt"
 skill_type = "projectile"
-max_level = 5
+max_level = 10
 base_damage = 9.0
 damage_per_level = 3.0
 base_cooldown = 1.1

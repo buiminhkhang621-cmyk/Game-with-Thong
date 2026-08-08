@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="PassiveData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/PassiveData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "armor"
+display_name = "Armor"
+max_level = 5
+stat = "armor"
+value_per_level = 0.05

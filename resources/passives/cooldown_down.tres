@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "cooldown"
-display_name = "Hồi Chiêu"
+display_name = "Haste"
 max_level = 5
 stat = "cooldown"
 value_per_level = 0.06

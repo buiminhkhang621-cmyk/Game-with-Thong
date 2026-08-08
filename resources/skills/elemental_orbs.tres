@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "elemental_orbs"
+display_name = "Elemental Orbs"
+skill_type = "elemental_orbs"
+max_level = 10
+base_damage = 10.0
+damage_per_level = 3.0
+base_cooldown = 1.5
+projectile_speed = 300.0
+base_radius = 40.0
+radius_per_level = 0.0
+color = Color(0.6, 0.2, 0.8, 1)

@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 id = "orbit"
-display_name = "Kiếm Xoay"
+display_name = "Orbit Blade"
 skill_type = "orbit"
-max_level = 5
+max_level = 10
 base_damage = 6.0
 damage_per_level = 2.0
 base_cooldown = 1.0

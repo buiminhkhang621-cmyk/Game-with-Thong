@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 id = "nova"
-display_name = "Tán Xạ Nova"
+display_name = "Nova Scatter"
 skill_type = "nova"
-max_level = 5
+max_level = 10
 base_damage = 5.0
 damage_per_level = 3.0
 base_cooldown = 1.1

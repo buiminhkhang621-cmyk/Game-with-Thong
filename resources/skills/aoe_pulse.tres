@@ -5,9 +5,9 @@
 [resource]
 script = ExtResource("1")
 id = "aoe"
-display_name = "Vòng Nổ AoE"
+display_name = "AoE Pulse"
 skill_type = "aoe"
-max_level = 5
+max_level = 10
 base_damage = 7.0
 damage_per_level = 3.0
 base_cooldown = 1.1

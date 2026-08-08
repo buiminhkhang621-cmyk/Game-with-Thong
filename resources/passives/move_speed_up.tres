@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "movespeed"
-display_name = "Tốc Độ"
+display_name = "Swiftness"
 max_level = 5
 stat = "movespeed"
 value_per_level = 0.06

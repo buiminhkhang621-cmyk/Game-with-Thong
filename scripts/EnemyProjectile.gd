@@ -6,13 +6,16 @@ var damage: float = 15.0
 var life: float = 2.0
 var _color: Color = Color(0.2, 0.6, 1.0)
 
-func setup(vel: Vector2, dmg: float, c: Color) -> void:
+func setup(vel: Vector2, dmg: float, c: Color = Color(1.0, 0.2, 0.2)) -> void:
 	velocity = vel
 	damage = dmg
 	_color = c
 	queue_redraw()
 
 func _process(delta: float) -> void:
+	if GameManager.game_over or GameManager.paused_for_levelup:
+		return
+		
 	life -= delta
 	if life <= 0.0:
 		queue_free()
@@ -23,7 +26,7 @@ func _process(delta: float) -> void:
 	var player = GameManager.player
 	if player:
 		if global_position.distance_to(player.global_position) < 6.0 + player.hit_radius:
-			player.take_damage(damage)
+			player.take_damage(damage, true) # true means ground attack, so jumping dodges it
 			queue_free()
 
 func _draw() -> void:

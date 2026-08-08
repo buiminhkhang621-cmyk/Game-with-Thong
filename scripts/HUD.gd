@@ -3,6 +3,8 @@ extends CanvasLayer
 @onready var hp_bar: ProgressBar = $HPBar
 @onready var info_label: Label = $InfoLabel
 
+var spell_info_label: Label = null
+
 var _level: int = 1
 var _kills: int = 0
 var _score: int = 0
@@ -15,6 +17,12 @@ func _ready() -> void:
 	GameManager.kill_count_changed.connect(_on_kill_changed)
 	GameManager.score_changed.connect(_on_score_changed)
 	GameManager.run_time_changed.connect(_on_time_changed)
+	
+	spell_info_label = Label.new()
+	spell_info_label.position = Vector2(10, 40)
+	spell_info_label.add_theme_font_size_override("font_size", 14)
+	add_child(spell_info_label)
+	
 	_refresh()
 
 
@@ -47,3 +55,25 @@ func _refresh() -> void:
 	var m := int(_time / 60.0)
 	var s := int(_time) % 60
 	info_label.text = "Lv %d  |  %d:%02d  |  %d  |  %d" % [_level, m, s, _kills, _score]
+	
+	if spell_info_label:
+		var txt = ""
+		if GameManager.collected_vong.size() > 0 or GameManager.collected_net.size() > 0:
+			txt += "Seals: " + str(GameManager.collected_vong) + "\n"
+			txt += "Crests: " + str(GameManager.collected_net) + "\n"
+		
+		var spells = []
+		for sp in GameManager.crafted_spells:
+			spells.append(sp.vong + " + " + sp.net)
+		if spells.size() > 0:
+			txt += "Spells: " + str(spells) + "\n"
+		
+		var active_res = "None"
+		var types = ["lightning", "ice", "dark", "void"]
+		for t in types:
+			if GameManager.has_rune_resonance(t):
+				active_res = t.capitalize()
+				break
+		txt += "Resonance: " + active_res
+		
+		spell_info_label.text = txt

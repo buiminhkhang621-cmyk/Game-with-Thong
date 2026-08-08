@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "damage"
-display_name = "Sát Thương"
+display_name = "Might"
 max_level = 5
 stat = "damage"
 value_per_level = 0.08

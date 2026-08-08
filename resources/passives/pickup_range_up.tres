@@ -5,7 +5,7 @@
 [resource]
 script = ExtResource("1")
 id = "pickup"
-display_name = "Hút EXP"
+display_name = "Magnet"
 max_level = 5
 stat = "pickup"
 value_per_level = 0.25

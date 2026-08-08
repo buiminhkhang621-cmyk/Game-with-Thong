@@ -11,7 +11,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var player = GameManager.player
-	if player == null or GameManager.game_over:
+	if player == null or GameManager.game_over or GameManager.paused_for_levelup:
 		return
 
 	var pr: float = pickup_radius_base * (1.0 + GameManager.passive_value("pickup"))

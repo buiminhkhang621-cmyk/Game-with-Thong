@@ -21,12 +21,12 @@ offset_right = 400.0
 offset_bottom = 240.0
 
 [node name="TitleLabel" type="Label" parent="Panel/VBoxContainer"]
-text = "GỤC NGÃ"
+text = "GAME OVER"
 
 [node name="StatsLabel" type="Label" parent="Panel/VBoxContainer"]
 text = ""
 
 [node name="RestartButton" type="Button" parent="Panel/VBoxContainer"]
-text = "Chơi Lại"
+text = "Play Again"
 
 [connection signal="pressed" from="Panel/VBoxContainer/RestartButton" to="." method="_on_restart_pressed"]

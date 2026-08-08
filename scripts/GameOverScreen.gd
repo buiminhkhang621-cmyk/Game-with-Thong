@@ -11,7 +11,7 @@ func _ready() -> void:
 func _on_player_died() -> void:
 	var m := int(GameManager.run_time / 60.0)
 	var s := int(GameManager.run_time) % 60
-	stats_label.text = "Thời gian sống sót: %d:%02d\nSố quái hạ gục: %d\nCấp độ đạt được: %d" \
+	stats_label.text = "Time Survived: %d:%02d\nEnemies Defeated: %d\nLevel Reached: %d" \
 		% [m, s, GameManager.kills, GameManager.level]
 	visible = true
 

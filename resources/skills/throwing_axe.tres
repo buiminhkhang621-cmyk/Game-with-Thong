@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "throwing_axe"
+display_name = "Throwing Axe"
+skill_type = "throwing_axe"
+max_level = 10
+base_damage = 18.0
+damage_per_level = 5.0
+base_cooldown = 2.4
+projectile_speed = 300.0
+base_radius = 20.0
+radius_per_level = 0.0
+color = Color(0.8, 0.2, 0.2, 1)
