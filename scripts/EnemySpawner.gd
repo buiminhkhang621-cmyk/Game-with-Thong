@@ -3,7 +3,7 @@ extends Node2D
 @export var enemy_scene: PackedScene
 @export var spawn_interval_start: float = 1.0
 @export var spawn_interval_min: float = 0.1
-@export var max_enemies: int = 250
+@export var max_enemies: int = 125
 @export var spawn_radius: float = 400.0
 
 var _timer: float = 0.0
@@ -19,8 +19,8 @@ func _process(delta: float) -> void:
 
 	var tier: int = GameManager.current_map_tier
 	var actual_max_enemies: int = max_enemies
-	if tier == 1: actual_max_enemies = 150
-	elif tier == 3: actual_max_enemies = 400
+	if tier == 1: actual_max_enemies = 75
+	elif tier == 3: actual_max_enemies = 200
 	
 	if _timer >= interval and get_tree().get_nodes_in_group("enemies").size() < actual_max_enemies:
 		_timer = 0.0
