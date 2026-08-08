@@ -53,6 +53,7 @@ var active_relics: Array = []
 var collected_vong: Array = []
 var collected_net: Array = []
 var crafted_spells: Array = []
+var unlocked_runes: Array = []
 
 var available_vong: Array = ["Guardian", "Warden"]
 var available_net: Array = ["Split", "Chase"]
@@ -115,6 +116,8 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 		player._effective_max_hp = player.base_max_hp
 		hp_changed.emit(player.hp, player._effective_max_hp)
 
+	unlocked_runes.clear()
+
 	get_tree().paused = false
 		
 	var start_weapon_path = ""
@@ -127,7 +130,7 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	if start_weapon_path != "":
 		var w = load(start_weapon_path)
 		if w:
-			var max_runes = 2 if class_id == "void_mage" else 1
+			var max_runes = 2
 			active_skills.append({"data": w, "level": 1, "runes": [], "max_runes": max_runes})
 			
 	level_changed.emit(level)
@@ -282,6 +285,15 @@ func _build_level_up_choices() -> Array:
 				"title": "%s Lv%d→%d" % [s.data.display_name, s.level, s.level + 1],
 				"desc": "Increases active skill stats.",
 			})
+			
+		if s.runes.size() < s.max_runes:
+			for rune in unlocked_runes:
+				if not s.runes.has(rune):
+					pool.append({
+						"weight": 2, "type": "equip_rune", "skill_id": s.data.id, "rune_type": rune,
+						"tag": "Imbue", "title": s.data.display_name + " + " + rune.capitalize(),
+						"desc": "Imbue " + rune.capitalize() + " into " + s.data.display_name
+					})
 
 	if active_skills.size() < MAX_ACTIVE_SLOTS:
 		for data in available_active_skills:
@@ -372,7 +384,7 @@ func apply_choice(choice: Dictionary) -> void:
 		"new_active":
 			var data := _find_active(choice.skill_id)
 			if data:
-				var max_runes = 2 if current_class == "void_mage" else 1
+				var max_runes = 2
 				active_skills.append({"data": data, "level": 1, "runes": [], "max_runes": max_runes})
 		"upgrade_passive":
 			passive_levels[choice.passive_id] = passive_levels.get(choice.passive_id, 0) + 1
@@ -393,7 +405,7 @@ func apply_choice(choice: Dictionary) -> void:
 		if total_passives >= 15:
 			# Tier 3: +1 Rune slot for all
 			for s in active_skills:
-				var base_max = 2 if current_class == "void_mage" else 1
+				var base_max = 2
 				s.max_runes = base_max + 1
 
 	if pending_level_ups > 0:

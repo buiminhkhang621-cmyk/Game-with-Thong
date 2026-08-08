@@ -18,13 +18,18 @@ func _ready() -> void:
 		obs.color = Color(randf_range(0.1, 0.3), randf_range(0.3, 0.6), randf_range(0.1, 0.3))
 		add_child(obs)
 
-	# Spawn some Rune Fountains
-	for i in range(15):
-		var fountain = Node2D.new()
+	# Spawn exact 4 Rune Fountains
+	var elements = ["lightning", "ice", "dark", "void"]
+	for i in range(4):
+		var fountain = Area2D.new()
 		fountain.set_script(load("res://scripts/RuneFountain.gd"))
-		fountain.global_position = Vector2(randf_range(-2000, 2000), randf_range(-2000, 2000))
-		if fountain.global_position.length() < 300.0:
-			continue
+		
+		# Ensure they are somewhat spread out and not too close to center
+		var r = randf_range(800, 2000)
+		var a = randf_range(0, TAU)
+		fountain.global_position = Vector2(cos(a) * r, sin(a) * r)
+		
+		fountain.rune_type = elements[i]
 		add_child(fountain)
 
 func _process(_delta: float) -> void:

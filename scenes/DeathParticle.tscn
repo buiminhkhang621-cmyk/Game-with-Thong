@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cy7e6v5x801e"]
 
-[ext_resource type="Script" uid="uid://b0123456789ab" path="res://scripts/DeathParticle.gd" id="1"]
+[ext_resource type="Script" path="res://scripts/DeathParticle.gd" id="1"]
 
 [node name="DeathParticle" type="CPUParticles2D"]
 emitting = false

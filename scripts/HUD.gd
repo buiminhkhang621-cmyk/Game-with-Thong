@@ -19,7 +19,7 @@ func _ready() -> void:
 	GameManager.run_time_changed.connect(_on_time_changed)
 	
 	spell_info_label = Label.new()
-	spell_info_label.position = Vector2(10, 40)
+	spell_info_label.position = Vector2(10, 100)
 	spell_info_label.add_theme_font_size_override("font_size", 14)
 	add_child(spell_info_label)
 	

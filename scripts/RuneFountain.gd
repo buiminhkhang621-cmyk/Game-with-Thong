@@ -32,17 +32,9 @@ func _on_body_entered(body: Node2D) -> void:
 	if used or not body is Player:
 		return
 		
-	# Try to give the rune to an active skill
-	var given = false
-	var active_skills = GameManager.active_skills
-	for s in active_skills:
-		if s.has("runes") and s.runes.size() < s.max_runes and not s.runes.has(rune_type):
-			s.runes.append(rune_type)
-			given = true
-			print("Imbued ", s.data.display_name, " with ", rune_type)
-			break
-			
-	if given:
+	if not GameManager.unlocked_runes.has(rune_type):
+		GameManager.unlocked_runes.append(rune_type)
+		print("Unlocked rune element: ", rune_type)
 		used = true
 		queue_redraw()
 		label.text = "Empty"

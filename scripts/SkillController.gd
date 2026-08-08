@@ -68,7 +68,6 @@ func _process_crafted_spells() -> void:
 		var net = spell.net
 		
 		var t = Time.get_ticks_msec() / 1000.0
-		var cd = 2.0 # Default cd for crafted spells
 		var last = _spell_cooldowns.get(i, 0.0)
 		
 		var should_fire = false
@@ -162,7 +161,8 @@ func _fire_projectile(s_dict: Dictionary, data: SkillData, level: int) -> void:
 	var proj = PROJECTILE_SCENE.instantiate()
 	get_tree().current_scene.add_child(proj)
 	proj.global_position = player.global_position
-	proj.setup(dir * data.projectile_speed, dmg, data.color)
+	var r = s_dict.runes if s_dict.has("runes") else []
+	proj.setup(dir * data.projectile_speed, dmg, data.color, r)
 
 
 func _fire_nova(s_dict: Dictionary, data: SkillData, level: int) -> void:
@@ -183,7 +183,8 @@ func _fire_nova(s_dict: Dictionary, data: SkillData, level: int) -> void:
 		var proj = PROJECTILE_SCENE.instantiate()
 		get_tree().current_scene.add_child(proj)
 		proj.global_position = player.global_position
-		proj.setup(dir * data.projectile_speed, dmg, data.color)
+		var r = s_dict.runes if s_dict.has("runes") else []
+		proj.setup(dir * data.projectile_speed, dmg, data.color, r)
 
 func _fire_aoe(s_dict: Dictionary, data: SkillData, level: int) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
@@ -232,7 +233,8 @@ func _fire_throwing_axe(s_dict: Dictionary, data: SkillData, level: int) -> void
 	axe.set_script(load("res://scripts/ThrowingAxe.gd"))
 	get_tree().current_scene.add_child(axe)
 	axe.global_position = player.global_position
-	axe.setup(dir * data.projectile_speed, dmg, data.color, axe_empowered, self)
+	var r = s_dict.runes if s_dict.has("runes") else []
+	axe.setup(dir * data.projectile_speed, dmg, data.color, axe_empowered, self, r)
 	
 	axe_empowered = false # Reset after throw
 
@@ -321,7 +323,7 @@ func _find_nearest_enemy() -> Node:
 			best = e
 	return best
 
-func _fire_lightning(s: Dictionary, data: SkillData, level: int) -> void:
+func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 	var last: float = _last_fire_time.get(data.id, 0.0)
 	var t := Time.get_ticks_msec() / 1000.0
 	var cd: float = max(0.4, data.base_cooldown - level * 0.11) * (1.0 - GameManager.passive_value("cooldown"))
@@ -364,7 +366,7 @@ func _fire_lightning(s: Dictionary, data: SkillData, level: int) -> void:
 	# Store for drawing
 	_lightning_visuals.append({"path": path, "time": 0.2, "color": data.color})
 
-func _fire_earthquake(s: Dictionary, data: SkillData, level: int) -> void:
+func _fire_earthquake(_s: Dictionary, data: SkillData, level: int) -> void:
 	var last: float = _last_fire_time.get(data.id, 0.0)
 	var t := Time.get_ticks_msec() / 1000.0
 	var cd: float = max(0.8, data.base_cooldown - level * 0.2) * (1.0 - GameManager.passive_value("cooldown"))
