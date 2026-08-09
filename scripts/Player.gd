@@ -51,8 +51,13 @@ func _ready() -> void:
 var _berserker_time: float = 0.0
 var berserker_dmg_buff: float = 0.0
 
+var _landing_i_frames: float = 0.0
+
 func _physics_process(delta: float) -> void:
 	_update_max_hp()
+	
+	if _landing_i_frames > 0.0:
+		_landing_i_frames -= delta
 	
 	if GameManager.current_class == "berserker":
 		_berserker_time += delta
@@ -66,7 +71,8 @@ func _physics_process(delta: float) -> void:
 		if z_height <= 0.0:
 			z_height = 0.0
 			z_velocity = 0.0
-			
+			_apply_landing_knockback()
+			_landing_i_frames = 0.25 # Invulnerable to ground attacks while enemies are pushed back
 	if z_height > 15.0:
 		set_collision_mask_value(1, false) # Disable obstacle collision
 		z_index = 10
@@ -145,12 +151,25 @@ func _update_max_hp() -> void:
 		hp = min(hp, _effective_max_hp)
 		GameManager.hp_changed.emit(hp, _effective_max_hp)
 
+func _apply_landing_knockback() -> void:
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.has_method("apply_knockback"):
+			var dist = global_position.distance_to(e.global_position)
+			if dist < hit_radius + e.hit_radius + 40.0:
+				var dir = (e.global_position - global_position).normalized()
+				if dir.length() < 0.1:
+					dir = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
+				e.apply_knockback(dir, 200.0)
+				# Also deal a small amount of damage on landing?
+				if e.has_method("take_damage"):
+					e.take_damage(5.0)
+
 
 func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	if GameManager.game_over or in_dark_state or god_mode:
 		return
-	if is_ground_attack and z_height > 15.0:
-		return # Dodged by jumping
+	if is_ground_attack and (z_height > 0.0 or _landing_i_frames > 0.0):
+		return # Dodged by jumping or landing i-frames
 		
 	# Tier 2 Passive: 8% dodge chance
 	if GameManager.get_total_passive_levels() >= 10:

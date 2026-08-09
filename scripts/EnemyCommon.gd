@@ -100,8 +100,13 @@ func _physics_process(delta: float) -> void:
 			active_auras.erase("ice")
 			queue_redraw()
 	
+	var target_pos: Vector2 = player.global_position
 	if void_mark_time > 0:
 		void_mark_time -= delta
+		var nearest_other = _get_nearest_enemy_except(self)
+		if nearest_other:
+			target_pos = nearest_other.global_position
+			
 		if void_mark_time <= 0:
 			active_auras.erase("void")
 			queue_redraw()
@@ -117,7 +122,7 @@ func _physics_process(delta: float) -> void:
 	if reaction_cooldown > 0:
 		reaction_cooldown -= delta
 
-	var to_player: Vector2 = player.global_position - global_position
+	var to_player: Vector2 = target_pos - global_position
 	var dist: float = to_player.length()
 	
 	var current_speed = speed
@@ -319,7 +324,7 @@ func apply_element(type: String, dmg: float) -> void:
 				return
 				
 			if void_mark_time <= 0:
-				void_mark_time = 3.0
+				void_mark_time = 1.5
 
 func _check_reactions(dmg: float) -> void:
 	if reaction_cooldown > 0: return

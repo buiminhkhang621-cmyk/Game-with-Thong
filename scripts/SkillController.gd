@@ -102,7 +102,7 @@ func _fire_spell_net(net: String) -> void:
 			var proj = PROJECTILE_SCENE.instantiate()
 			get_tree().current_scene.add_child(proj)
 			proj.global_position = player.global_position
-			proj.setup(dir * 200.0, dmg, c, ["lightning"])
+			proj.setup(dir * 200.0, dmg, c, [])
 
 func on_axe_caught() -> void:
 	axe_empowered = true

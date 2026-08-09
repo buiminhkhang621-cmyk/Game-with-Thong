@@ -5,6 +5,7 @@ extends CanvasLayer
 @onready var info_label: Label = $InfoLabel
 
 var spell_info_label: Label = null
+var fps_label: Label = null
 
 var _level: int = 1
 var _kills: int = 0
@@ -25,7 +26,29 @@ func _ready() -> void:
 	spell_info_label.add_theme_font_size_override("font_size", 14)
 	add_child(spell_info_label)
 	
+	fps_label = Label.new()
+	add_child(fps_label)
+	fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	fps_label.offset_left = -100
+	fps_label.offset_top = 10
+	fps_label.offset_right = -10
+	fps_label.offset_bottom = 30
+	fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	fps_label.add_theme_font_size_override("font_size", 16)
+	fps_label.add_theme_color_override("font_color", Color(0.2, 1.0, 0.2))
+	
+	_on_hp_changed(GameManager.player.hp if GameManager.player else 100, GameManager.player._effective_max_hp if GameManager.player else 100)
+	_on_xp_changed(GameManager.xp, GameManager.xp_to_next)
+	_on_level_changed(GameManager.level)
+	_on_kill_changed(GameManager.kills)
+	_on_score_changed(GameManager.score)
+	_on_time_changed(GameManager.run_time)
+	
 	_refresh()
+
+func _process(_delta: float) -> void:
+	if fps_label:
+		fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
 
 
 func _on_hp_changed(cur: float, max_hp: float) -> void:
@@ -75,12 +98,11 @@ func _refresh() -> void:
 		if spells.size() > 0:
 			txt += "Spells: " + str(spells) + "\n"
 		
-		var active_res = "None"
+		var active_res = []
 		var types = ["lightning", "ice", "dark", "void"]
 		for t in types:
 			if GameManager.has_rune_resonance(t):
-				active_res = t.capitalize()
-				break
-		txt += "Resonance: " + active_res
+				active_res.append(t.capitalize())
+		txt += "Resonance: " + (", ".join(active_res) if active_res.size() > 0 else "None")
 		
 		spell_info_label.text = txt
