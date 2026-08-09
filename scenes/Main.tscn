@@ -8,6 +8,7 @@
 [ext_resource type="PackedScene" path="res://scenes/LevelUpScreen.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/GameOverScreen.tscn" id="7"]
 [ext_resource type="Script" path="res://scripts/Background.gd" id="8"]
+[ext_resource type="PackedScene" path="res://scenes/DevPanel.tscn" id="9"]
 
 [node name="Main" type="Node2D"]
 script = ExtResource("1")
@@ -26,3 +27,5 @@ enemy_scene = ExtResource("4")
 [node name="LevelUpScreen" parent="." instance=ExtResource("6")]
 
 [node name="GameOverScreen" parent="." instance=ExtResource("7")]
+
+[node name="DevPanel" parent="." instance=ExtResource("9")]

@@ -97,7 +97,6 @@ func _physics_process(delta: float) -> void:
 		ice_slow_time -= delta
 		if ice_slow_time <= 0:
 			is_frozen = false
-			color = _original_color
 			active_auras.erase("ice")
 			queue_redraw()
 	
@@ -106,6 +105,14 @@ func _physics_process(delta: float) -> void:
 		if void_mark_time <= 0:
 			active_auras.erase("void")
 			queue_redraw()
+			
+			if randf() < 0.20:
+				_die()
+			else:
+				var targets = _get_nearest_enemies_except(self, 2, 350.0)
+				for t in targets:
+					if t.has_method("apply_element") and not t.active_auras.has("void"):
+						t.apply_element("void", 0.0)
 			
 	if reaction_cooldown > 0:
 		reaction_cooldown -= delta
@@ -179,11 +186,23 @@ func _physics_process(delta: float) -> void:
 	if _burn_time > 0:
 		_burn_time -= delta
 		hp -= _burn_dps * delta
-		if not _is_flashing and ice_slow_time <= 0:
-			color = _original_color.lerp(Color(1.0, 0.4, 0.0), 0.5)
-			queue_redraw()
 		if hp <= 0:
 			_die()
+			
+	if not _is_flashing:
+		var target_color = _original_color
+		if ice_slow_time > 0:
+			target_color = Color(0.3, 0.6, 1.0)
+		elif _burn_time > 0:
+			target_color = _original_color.lerp(Color(1.0, 0.4, 0.0), 0.5)
+		elif active_auras.has("dark"):
+			# Gradient towards black based on stolen dark HP
+			var drain_ratio = min(1.0, GameManager.stolen_dark_hp / 100.0)
+			target_color = _original_color.lerp(Color.BLACK, 0.3 + drain_ratio * 0.5)
+		
+		if color != target_color:
+			color = target_color
+			queue_redraw()
 
 	if dist < hit_radius + player.hit_radius:
 		player.take_damage(contact_dps * delta, true)
@@ -191,12 +210,21 @@ func _physics_process(delta: float) -> void:
 
 func take_damage(amount: float) -> void:
 	var final_dmg = amount
+	var is_crit = false
 	if randf() < GameManager.passive_value("crit"):
 		final_dmg *= 2.0
 		color = Color.WHITE
 		_is_flashing = true
 		_flash_timer = 0.15
+		is_crit = true
 	hp -= final_dmg
+	
+	if final_dmg >= 1.0:
+		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
+		get_tree().current_scene.add_child(dn)
+		dn.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 0))
+		dn.setup(final_dmg, is_crit)
+	
 	if hp <= 0.0:
 		_die()
 
@@ -246,16 +274,26 @@ func apply_element(type: String, dmg: float) -> void:
 			
 			var current: Node = self
 			var hit_enemies = [self]
+			var path = [global_position]
 			
 			for i in range(jumps):
 				var next_target = current._get_nearest_enemy_not_in(hit_enemies)
 				if next_target:
+					path.append(next_target.global_position)
 					hit_enemies.append(next_target)
 					if next_target.has_method("take_damage"):
 						next_target.take_damage(chain_dmg)
 					current = next_target
 				else:
 					break
+			
+			if path.size() >= 2:
+				var line = Line2D.new()
+				line.set_script(load("res://scripts/LightningLine.gd"))
+				line.points = path
+				line.width = 3.0
+				line.default_color = Color(1.0, 0.9, 0.2)
+				get_tree().current_scene.add_child(line)
 		"ice":
 			var freeze_chance = 0.1
 			if randf() < freeze_chance:
@@ -280,13 +318,8 @@ func apply_element(type: String, dmg: float) -> void:
 				GameManager.trigger_void_nuke()
 				return
 				
-			if randf() < 0.30: # 30% insta-kill (vanish)
-				_die()
-			else: # 70% spread to 2 nearby
-				var targets = _get_nearest_enemies_except(self, 2)
-				for t in targets:
-					if t.has_method("apply_element"):
-						t.apply_element("void", dmg)
+			if void_mark_time <= 0:
+				void_mark_time = 3.0
 
 func _check_reactions(dmg: float) -> void:
 	if reaction_cooldown > 0: return
@@ -352,12 +385,12 @@ func _get_nearest_enemy_not_in(excludes: Array) -> Node:
 	return best
 
 
-func _get_nearest_enemies_except(exclude_node: Node, count: int) -> Array:
+func _get_nearest_enemies_except(exclude_node: Node, count: int, radius: float = 150.0) -> Array:
 	var pool = []
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e == exclude_node: continue
 		var d: float = global_position.distance_to(e.global_position)
-		if d < 150.0:
+		if d < radius:
 			pool.append({"node": e, "dist": d})
 			
 	pool.sort_custom(func(a, b): return a.dist < b.dist)
@@ -405,5 +438,6 @@ func _draw() -> void:
 	if is_frozen:
 		draw_rect(Rect2(-hit_radius, -hit_radius, hit_radius*2, hit_radius*2), Color(0.5, 0.8, 1.0, 0.5), false, 2.0)
 		
-	if void_mark_time > 0:
-		draw_arc(Vector2(0, -hit_radius - 5), 4.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 1.5)
+	if active_auras.has("void"):
+		draw_arc(Vector2(0, -hit_radius - 8), 6.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 2.0)
+		draw_circle(Vector2(0, -hit_radius - 8), 2.0, Color(0.8, 0.4, 1.0))

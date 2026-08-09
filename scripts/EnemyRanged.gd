@@ -113,4 +113,3 @@ func _draw() -> void:
 		var ang = TAU / 6.0 * i
 		hex.append(Vector2(cos(ang), sin(ang)) * hit_radius)
 	draw_polygon(hex, PackedColorArray([color, color, color, color, color, color]))
-

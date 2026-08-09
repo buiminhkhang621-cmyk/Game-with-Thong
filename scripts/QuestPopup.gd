@@ -17,6 +17,7 @@ func _ready() -> void:
 	panel.grow_vertical = Control.GROW_DIRECTION_END
 	panel.position = Vector2(-20, 20)
 	panel.modulate.a = 0
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(panel)
 	
 	glow = ColorRect.new()

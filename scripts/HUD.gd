@@ -1,6 +1,7 @@
 extends CanvasLayer
 
 @onready var hp_bar: ProgressBar = $HPBar
+@onready var xp_bar: ProgressBar = $XPBar
 @onready var info_label: Label = $InfoLabel
 
 var spell_info_label: Label = null
@@ -13,6 +14,7 @@ var _time: float = 0.0
 
 func _ready() -> void:
 	GameManager.hp_changed.connect(_on_hp_changed)
+	GameManager.xp_changed.connect(_on_xp_changed)
 	GameManager.level_changed.connect(_on_level_changed)
 	GameManager.kill_count_changed.connect(_on_kill_changed)
 	GameManager.score_changed.connect(_on_score_changed)
@@ -29,6 +31,11 @@ func _ready() -> void:
 func _on_hp_changed(cur: float, max_hp: float) -> void:
 	hp_bar.max_value = max_hp
 	hp_bar.value = cur
+
+
+func _on_xp_changed(cur: int, needed: int) -> void:
+	xp_bar.max_value = needed
+	xp_bar.value = cur
 
 
 func _on_level_changed(l: int) -> void:

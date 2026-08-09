@@ -6,6 +6,7 @@ extends CharacterBody2D
 
 var hp: float
 var hit_radius: float = 12.0
+var god_mode: bool = false
 
 var _effective_max_hp: float
 var _shake_intensity: float = 0.0
@@ -146,7 +147,7 @@ func _update_max_hp() -> void:
 
 
 func take_damage(amount: float, is_ground_attack: bool = true) -> void:
-	if GameManager.game_over or in_dark_state:
+	if GameManager.game_over or in_dark_state or god_mode:
 		return
 	if is_ground_attack and z_height > 15.0:
 		return # Dodged by jumping
@@ -174,6 +175,13 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 		
 	hp -= dmg
 	_shake_intensity = 15.0
+	
+	if dmg >= 1.0:
+		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
+		get_tree().current_scene.add_child(dn)
+		dn.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 0))
+		dn.setup(dmg, false, Color(1.0, 0.4, 0.4))
+	
 	GameManager.hp_changed.emit(hp, _effective_max_hp)
 	if hp <= 0.0:
 		hp = 0.0

@@ -3,6 +3,7 @@ extends Node2D
 var current_ui: Node = null
 
 func _ready() -> void:
+	$DevPanel.hide()
 	y_sort_enabled = true
 	# Hide player/gameplay initially
 	get_tree().paused = true
@@ -60,5 +61,8 @@ func _show_map_selection(class_id: String) -> void:
 func start_game(class_id: String, map_tier: int) -> void:
 	if current_ui: current_ui.queue_free()
 	current_ui = null
+	
+	if has_node("DevPanel"):
+		$DevPanel.show()
 	
 	GameManager.start_run_with_class_and_map(class_id, map_tier)

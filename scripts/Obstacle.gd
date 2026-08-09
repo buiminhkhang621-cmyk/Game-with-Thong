@@ -16,4 +16,3 @@ func _ready() -> void:
 
 func _draw() -> void:
 	draw_circle(Vector2.ZERO, radius, color)
-

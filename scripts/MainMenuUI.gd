@@ -105,4 +105,3 @@ func _on_codex_pressed() -> void:
 	var main = get_tree().current_scene
 	if main.has_method("_show_codex"):
 		main._show_codex()
-

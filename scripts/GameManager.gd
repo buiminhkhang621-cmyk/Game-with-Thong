@@ -162,7 +162,6 @@ func register_kill() -> void:
 	kill_count_changed.emit(kills)
 	add_score(10)
 	_check_quest("total_kills", total_kills)
-	save_game()
 
 
 func add_score(amount: int) -> void:
@@ -174,6 +173,7 @@ func add_score(amount: int) -> void:
 
 func on_player_died() -> void:
 	game_over = true
+	save_game()
 	player_died.emit()
 
 
