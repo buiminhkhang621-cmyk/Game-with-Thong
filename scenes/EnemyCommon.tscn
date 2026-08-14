@@ -1,6 +1,13 @@
 [gd_scene format=3 uid="uid://dt33djhaenary"]
 
 [ext_resource type="Script" uid="uid://o7x68jsjs0uo" path="res://scripts/EnemyCommon.gd" id="1"]
+[ext_resource type="Texture2D" path="res://Sprite/NPC/zombie-final.png" id="2"]
 
 [node name="EnemyCommon" type="CharacterBody2D" unique_id=1769957075]
 script = ExtResource("1")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2")
+offset = Vector2(0, -10)
+scale = Vector2(2.5, 2.5)

@@ -6,8 +6,11 @@ extends CharacterBody2D
 @export var contact_dps: float = 10.0
 @export var xp_value: int = 1
 @export var hit_radius: float = 10.0
-@export var color: Color = Color(0.77, 0.33, 0.30, 1.0)
+@export var color: Color = Color.WHITE
 @export var _is_flashing: bool = false
+
+@onready var sprite: Sprite2D = $Sprite2D
+var wobble_time: float = 0.0
 var _flash_timer: float = 0.0
 var _original_color: Color
 var _burn_dps: float = 0.0
@@ -42,32 +45,51 @@ func setup_type(type: String) -> void:
 			speed *= 1.5
 			max_hp *= 0.3
 			hit_radius *= 0.6
-			color = Color(0.9, 0.9, 0.3, 1.0)
 		"tank":
 			speed *= 0.5
 			max_hp *= 4.0
 			hit_radius *= 2.0
 			contact_dps *= 0.5
-			color = Color(0.3, 0.3, 0.3, 1.0)
 		"sniper":
 			max_hp *= 0.5
 			contact_dps *= 2.0
-			color = Color(0.3, 0.8, 0.3, 1.0)
 			sniper_cooldown = randf_range(1.0, 2.0)
 		"bomber":
-			color = Color(0.9, 0.4, 0.1, 1.0)
+			pass
 		"teleporter":
-			color = Color(0.6, 0.2, 0.8, 1.0)
 			speed *= 1.2
 			teleport_cooldown = randf_range(2.0, 4.0)
 		"summoner":
-			color = Color(0.2, 0.6, 0.8, 1.0)
 			speed *= 0.8
 			max_hp *= 1.5
 			summon_cooldown = randf_range(3.0, 5.0)
 			
 	hp = max_hp
 	_original_color = color
+	
+	# Apply sprite tint and scale based on enemy type
+	if sprite:
+		if type == "swarm":
+			sprite.texture = load("res://Sprite/NPC/swarm.png")
+		else:
+			sprite.texture = load("res://Sprite/NPC/zombie-final.png")
+			
+		sprite.modulate = color
+		match type:
+			"swarm":
+				sprite.scale = Vector2(2.2, 2.2)
+			"tank":
+				sprite.scale = Vector2(3.8, 3.8)
+			"sniper":
+				sprite.scale = Vector2(2.2, 2.2)
+			"bomber":
+				sprite.scale = Vector2(2.6, 2.6)
+			"teleporter":
+				sprite.scale = Vector2(2.2, 2.2)
+			"summoner":
+				sprite.scale = Vector2(3.0, 3.0)
+			_:
+				sprite.scale = Vector2(2.5, 2.5)
 	
 func _ready() -> void:
 	hp = max_hp
@@ -93,6 +115,13 @@ func _physics_process(delta: float) -> void:
 		return
 
 	# Handle status effect timers
+	if _is_flashing:
+		_flash_timer -= delta
+		if _flash_timer <= 0:
+			_is_flashing = false
+			if sprite:
+				sprite.modulate = color
+	
 	if ice_slow_time > 0:
 		ice_slow_time -= delta
 		if ice_slow_time <= 0:
@@ -149,10 +178,12 @@ func _physics_process(delta: float) -> void:
 			should_move = false
 			bomber_fuse -= delta
 			
-			if int(bomber_fuse * 10) % 2 == 0:
-				color = Color.RED
-			else:
-				color = _original_color
+			# Blink red via sprite modulate instead of color var
+			if sprite:
+				if int(bomber_fuse * 10) % 2 == 0:
+					sprite.modulate = Color.RED
+				else:
+					sprite.modulate = _original_color
 			queue_redraw()
 			
 			if bomber_fuse < 0:
@@ -188,6 +219,16 @@ func _physics_process(delta: float) -> void:
 		
 	move_and_slide()
 
+	# Update sprite direction and procedural animation
+	if sprite:
+		if velocity.length() > 5.0:
+			sprite.flip_h = velocity.x < 0
+			wobble_time += delta * 10.0
+			sprite.rotation = sin(wobble_time) * 0.08
+		else:
+			wobble_time = 0.0
+			sprite.rotation = lerpf(sprite.rotation, 0.0, delta * 10.0)
+
 	if _burn_time > 0:
 		_burn_time -= delta
 		hp -= _burn_dps * delta
@@ -201,12 +242,13 @@ func _physics_process(delta: float) -> void:
 		elif _burn_time > 0:
 			target_color = _original_color.lerp(Color(1.0, 0.4, 0.0), 0.5)
 		elif active_auras.has("dark"):
-			# Gradient towards black based on stolen dark HP
 			var drain_ratio = min(1.0, GameManager.stolen_dark_hp / 100.0)
 			target_color = _original_color.lerp(Color.BLACK, 0.3 + drain_ratio * 0.5)
 		
 		if color != target_color:
 			color = target_color
+			if sprite:
+				sprite.modulate = color
 			queue_redraw()
 
 	if dist < hit_radius + player.hit_radius:
@@ -222,6 +264,8 @@ func take_damage(amount: float) -> void:
 		_is_flashing = true
 		_flash_timer = 0.15
 		is_crit = true
+		if sprite:
+			sprite.modulate = Color.WHITE
 	hp -= final_dmg
 	
 	if final_dmg >= 1.0:
@@ -438,11 +482,21 @@ func _die() -> void:
 
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, hit_radius, color)
+	# Draw shadow
+	draw_circle(Vector2.ZERO, hit_radius * 0.7, Color(0, 0, 0, 0.25))
 	
+	# Frozen ice cage visual
 	if is_frozen:
-		draw_rect(Rect2(-hit_radius, -hit_radius, hit_radius*2, hit_radius*2), Color(0.5, 0.8, 1.0, 0.5), false, 2.0)
+		draw_rect(Rect2(-hit_radius, -hit_radius - 20, hit_radius*2, hit_radius*2), Color(0.5, 0.8, 1.0, 0.5), false, 2.0)
 		
+	# Void mark floating orb visual
 	if active_auras.has("void"):
-		draw_arc(Vector2(0, -hit_radius - 8), 6.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 2.0)
-		draw_circle(Vector2(0, -hit_radius - 8), 2.0, Color(0.8, 0.4, 1.0))
+		var time = Time.get_ticks_msec() / 1000.0
+		var orb_y = sin(time * 4.0) * 3.0 - hit_radius - 28.0
+		draw_arc(Vector2(0, orb_y), 6.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 2.0)
+		draw_circle(Vector2(0, orb_y), 2.0, Color(0.8, 0.4, 1.0))
+
+	# Bomber fuse flash (handled via sprite modulate now, but keep HP bar hint)
+	if enemy_type == "bomber" and bomber_fuse >= 0:
+		var alpha = fmod(bomber_fuse * 3.14, 1.0)
+		draw_circle(Vector2(0, -hit_radius - 30), 5.0, Color(1.0, 0.3, 0.0, alpha))

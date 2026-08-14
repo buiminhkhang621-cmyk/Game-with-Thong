@@ -21,6 +21,9 @@ const GRAVITY: float = 800.0
 const JUMP_FORCE: float = 250.0
 
 @onready var camera: Camera2D = $Camera2D
+@onready var sprite: Sprite2D = $Sprite2D
+
+var wobble_time: float = 0.0
 
 
 func _ready() -> void:
@@ -122,6 +125,7 @@ func _physics_process(delta: float) -> void:
 		camera.offset = Vector2.ZERO
 
 	if GameManager.game_over or GameManager.paused_for_levelup:
+		_update_sprite_visuals()
 		return
 
 	var dir := Vector2.ZERO
@@ -141,6 +145,31 @@ func _physics_process(delta: float) -> void:
 
 	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0:
 		z_velocity = JUMP_FORCE
+		
+	# Update sprite flip and procedural animation
+	if velocity.length() > 0.1:
+		sprite.flip_h = velocity.x < 0
+		wobble_time += delta * 10.0
+		sprite.rotation = sin(wobble_time) * 0.08
+	else:
+		wobble_time = 0.0
+		sprite.rotation = lerpf(sprite.rotation, 0.0, delta * 10.0)
+		
+	_update_sprite_visuals()
+
+
+func _update_sprite_visuals() -> void:
+	if not sprite:
+		return
+	
+	# Offset sprite upward when jumping (z-height simulation)
+	sprite.position.y = -z_height
+	
+	# Visual tint based on game state
+	if in_dark_state:
+		sprite.modulate = Color(0.4, 0.1, 0.6, 0.9)  # Shadowy purple
+	else:
+		sprite.modulate = Color.WHITE
 
 
 func _update_max_hp() -> void:
@@ -220,45 +249,39 @@ func _on_level_changed(_new_level: int) -> void:
 
 
 func _draw() -> void:
-	# Draw shadow always, scale down and fade out slightly when jumping
+	# Draw shadow on the ground (not affected by jump height)
 	var shadow_scale = clampf(1.0 - z_height / 100.0, 0.5, 1.0)
-	draw_circle(Vector2.ZERO, hit_radius * 0.8 * shadow_scale, Color(0, 0, 0, 0.3 * shadow_scale))
+	draw_circle(Vector2.ZERO, hit_radius * 0.8 * shadow_scale, Color(0, 0, 0, 0.35 * shadow_scale))
 
+	# Ice Resonance aura ring (ground-level effect)
 	if GameManager.has_rune_resonance("ice"):
 		var r = 150.0
-		draw_circle(Vector2.ZERO, r, Color(0.6, 0.9, 1.0, 0.15))
+		draw_circle(Vector2.ZERO, r, Color(0.6, 0.9, 1.0, 0.12))
 		var time = Time.get_ticks_msec() / 1000.0
 		for i in range(3):
 			var r_anim = r * fmod(time + i * 0.33, 1.0)
 			draw_arc(Vector2.ZERO, r_anim, 0, TAU, 32, Color(0.6, 0.9, 1.0, 0.4 * (1.0 - r_anim/r)), 2.0)
 
-	var center = Vector2(0, -z_height)
-	var goo_color = Color(0.1, 0.05, 0.2)
-	
+	# Dark state shimmer effect around sprite
 	if in_dark_state:
-		goo_color = Color(0.0, 0.0, 0.0, 0.5) # Shadowy goo
-	else:
-		match GameManager.current_class:
-			"berserker": goo_color = Color(0.8, 0.2, 0.2)
-			"vanguard": goo_color = Color(0.9, 0.8, 0.3)
-			"assassin": goo_color = Color(0.3, 0.3, 0.8)
-			"void_mage": goo_color = Color(0.6, 0.2, 0.8)
+		var center = Vector2(0, -z_height - 20.0)
+		var time = Time.get_ticks_msec() / 1000.0
+		for i in range(4):
+			var angle = time * 2.0 + i * TAU / 4.0
+			var orb_pos = center + Vector2(cos(angle), sin(angle) * 0.5) * 18.0
+			draw_circle(orb_pos, 3.5, Color(0.3, 0.0, 0.5, 0.8))
 
-	# Draw Goo Body
-	draw_circle(center, hit_radius, goo_color)
-	draw_circle(center + Vector2(-6, -4), 4, Color.WHITE)
-	draw_circle(center + Vector2(6, -4), 4, Color.WHITE)
-	draw_circle(center + Vector2(-6, -4), 1.5, Color.BLACK)
-	draw_circle(center + Vector2(6, -4), 1.5, Color.BLACK)
-	
+	# Class weapon visual (drawn relative to sprite position)
+	var center = Vector2(0, -z_height - 20.0)
 	match GameManager.current_class:
 		"berserker":
-			draw_line(center + Vector2(10, 0), center + Vector2(25, -15), Color.BROWN, 4)
-			draw_circle(center + Vector2(25, -15), 6, Color(0.8, 0.2, 0.2))
+			draw_line(center + Vector2(10, 4), center + Vector2(22, -8), Color(0.6, 0.2, 0.0), 3)
+			draw_circle(center + Vector2(22, -8), 4, Color(0.9, 0.3, 0.1))
 		"vanguard":
-			draw_rect(Rect2(center.x - 20, center.y - 5, 10, 20), Color.LIGHT_GRAY, false, 3)
+			draw_rect(Rect2(center.x - 18, center.y, 8, 18), Color(0.8, 0.8, 0.8, 0.9), false, 2)
 		"assassin":
-			draw_line(center + Vector2(8, 5), center + Vector2(20, 10), Color.DARK_GRAY, 3)
+			draw_line(center + Vector2(8, 6), center + Vector2(20, 14), Color(0.3, 0.3, 0.4), 2)
 		"void_mage":
-			draw_circle(center + Vector2(-20, -10), 4, Color.PURPLE)
-			draw_circle(center + Vector2(20, -10), 4, Color.PURPLE)
+			var t = Time.get_ticks_msec() / 1000.0
+			draw_circle(center + Vector2(cos(t * 3) * 16, sin(t * 3) * 8), 3, Color(0.7, 0.3, 1.0, 0.9))
+			draw_circle(center + Vector2(cos(t * 3 + PI) * 16, sin(t * 3 + PI) * 8), 3, Color(0.5, 0.1, 0.9, 0.9))

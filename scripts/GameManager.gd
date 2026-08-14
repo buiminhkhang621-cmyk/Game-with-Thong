@@ -18,6 +18,13 @@ signal player_died
 signal score_changed(new_score: int)
 signal quest_completed(quest_id: String, title: String)
 
+var bgm_player_1: AudioStreamPlayer
+var bgm_player_2: AudioStreamPlayer
+var active_bgm_player: AudioStreamPlayer
+var _bgm_tween: Tween
+var is_transitioning: bool = false
+var bgm_playlist: Array = []
+
 const MAX_ACTIVE_SLOTS := 3
 const MAX_PASSIVE_SLOTS := 3
 
@@ -84,6 +91,73 @@ func _process(delta: float) -> void:
 	_check_quest("time", run_time)
 	if active_curses.size() > 0:
 		_check_quest("curse_time", run_time)
+		
+	_update_bgm()
+
+
+func _update_bgm() -> void:
+	if not player or game_over:
+		if active_bgm_player and active_bgm_player.playing and not is_transitioning:
+			if _bgm_tween:
+				_bgm_tween.kill()
+			_bgm_tween = get_tree().create_tween()
+			_bgm_tween.tween_property(active_bgm_player, "volume_db", -80.0, 2.0)
+			_bgm_tween.tween_callback(active_bgm_player.stop)
+			is_transitioning = true
+		return
+		
+	if not active_bgm_player:
+		return
+		
+	# Start random track if nothing is playing
+	if not active_bgm_player.playing and not is_transitioning:
+		var stream = bgm_playlist[randi() % bgm_playlist.size()]
+		active_bgm_player.stream = stream
+		active_bgm_player.volume_db = 0.0
+		active_bgm_player.play()
+		return
+		
+	# Check if we are near the end of the current track
+	if active_bgm_player.playing and active_bgm_player.stream:
+		var pos = active_bgm_player.get_playback_position()
+		var length = active_bgm_player.stream.get_length()
+		
+		# 2.0 seconds before the end, start crossfade
+		if length - pos <= 2.0 and not is_transitioning:
+			_start_random_crossfade()
+
+func _start_random_crossfade() -> void:
+	is_transitioning = true
+	var next_player = bgm_player_2 if active_bgm_player == bgm_player_1 else bgm_player_1
+	
+	# Pick a track that is different from the current one
+	var current_stream = active_bgm_player.stream
+	var possible_tracks = []
+	for t in bgm_playlist:
+		if t != current_stream:
+			possible_tracks.append(t)
+			
+	if possible_tracks.size() > 0:
+		next_player.stream = possible_tracks[randi() % possible_tracks.size()]
+	else:
+		next_player.stream = current_stream
+		
+	next_player.volume_db = -80.0
+	next_player.play()
+	
+	if _bgm_tween:
+		_bgm_tween.kill()
+		
+	_bgm_tween = get_tree().create_tween()
+	var old_player = active_bgm_player
+	active_bgm_player = next_player
+	
+	_bgm_tween.tween_property(old_player, "volume_db", -80.0, 2.0)
+	_bgm_tween.parallel().tween_property(next_player, "volume_db", 0.0, 2.0)
+	_bgm_tween.tween_callback(func():
+		old_player.stop()
+		is_transitioning = false
+	)
 
 
 func register_player(p: Node) -> void:
@@ -540,6 +614,22 @@ func _check_quest(type: String, val: float) -> void:
 func _ready() -> void:
 	load_settings()
 	load_game()
+	
+	bgm_playlist = [
+		preload("res://music/bgm/map2/The_Stone_Chamber.mp3"),
+		preload("res://music/bgm/map2/Blade_in_the_Hall.mp3"),
+		preload("res://music/bgm/map2/The_Forgotten_Altar.mp3")
+	]
+	
+	bgm_player_1 = AudioStreamPlayer.new()
+	bgm_player_1.bus = "Master"
+	add_child(bgm_player_1)
+	
+	bgm_player_2 = AudioStreamPlayer.new()
+	bgm_player_2.bus = "Master"
+	add_child(bgm_player_2)
+	
+	active_bgm_player = bgm_player_1
 	
 	var script = load("res://scripts/QuestPopup.gd")
 	if script:
