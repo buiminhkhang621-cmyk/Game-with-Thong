@@ -345,6 +345,7 @@ func _trigger_level_up() -> void:
 		return
 	pending_level_ups -= 1
 	paused_for_levelup = true
+	get_tree().paused = true
 	leveled_up_choices.emit(_build_level_up_choices())
 
 
@@ -486,6 +487,7 @@ func apply_choice(choice: Dictionary) -> void:
 		_trigger_level_up()
 	else:
 		paused_for_levelup = false
+		get_tree().paused = false
 
 func _check_spell_craft() -> void:
 	if collected_vong.size() > crafted_spells.size() and collected_net.size() > crafted_spells.size():
@@ -623,10 +625,12 @@ func _ready() -> void:
 	
 	bgm_player_1 = AudioStreamPlayer.new()
 	bgm_player_1.bus = "Master"
+	bgm_player_1.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(bgm_player_1)
 	
 	bgm_player_2 = AudioStreamPlayer.new()
 	bgm_player_2.bus = "Master"
+	bgm_player_2.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(bgm_player_2)
 	
 	active_bgm_player = bgm_player_1

@@ -6,6 +6,7 @@ var _current_choices: Array = []
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 	GameManager.leveled_up_choices.connect(_on_choices)
 

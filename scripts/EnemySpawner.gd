@@ -45,15 +45,14 @@ func _spawn() -> void:
 	if t_minutes >= 1.0:
 		type_pool.append({"type": "swarm", "weight": 40.0})
 	if t_minutes >= 3.0:
-		type_pool.append({"type": "tank_blue", "weight": 10.0})
-		type_pool.append({"type": "tank_yellow", "weight": 10.0})
+		type_pool.append({"type": "tank_blue", "weight": 3.0})
+		type_pool.append({"type": "tank_yellow", "weight": 3.0})
 		type_pool.append({"type": "sniper", "weight": 20.0})
 	if t_minutes >= 4.0:
 		type_pool.append({"type": "teleporter", "weight": 15.0})
+		type_pool.append({"type": "bomber", "weight": 15.0})
 	if t_minutes >= 5.0:
 		type_pool.append({"type": "summoner", "weight": 10.0})
-	if t_minutes >= 6.0:
-		type_pool.append({"type": "bomber", "weight": 15.0})
 		
 	var total_weight = 0.0
 	for p in type_pool: total_weight += p.weight
