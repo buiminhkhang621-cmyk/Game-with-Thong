@@ -9,7 +9,7 @@ extends CharacterBody2D
 @export var color: Color = Color.WHITE
 @export var _is_flashing: bool = false
 
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var sprite: AnimatedSprite2D = $Sprite2D
 var wobble_time: float = 0.0
 var _flash_timer: float = 0.0
 var _original_color: Color
@@ -22,6 +22,9 @@ var void_mark_time: float = 0.0
 
 var active_auras: Array = []
 var reaction_cooldown: float = 0.0
+var _hurt_timer: float = 0.0
+var _attack_timer: float = 0.0
+var is_dying: bool = false
 
 var knockback_vel: Vector2 = Vector2.ZERO
 var knockback_time: float = 0.0
@@ -45,17 +48,26 @@ func setup_type(type: String) -> void:
 			speed *= 1.5
 			max_hp *= 0.3
 			hit_radius *= 0.6
-		"tank":
-			speed *= 0.5
+		"tank_blue":
 			max_hp *= 4.0
-			hit_radius *= 2.0
-			contact_dps *= 0.5
+			speed *= 0.5
+			contact_dps *= 1.0
+			hit_radius *= 1.5
+			xp_value = 3
+		"tank_yellow":
+			max_hp *= 2.5
+			speed *= 0.8
+			contact_dps *= 2.5
+			hit_radius *= 1.5
+			xp_value = 3
 		"sniper":
 			max_hp *= 0.5
 			contact_dps *= 2.0
 			sniper_cooldown = randf_range(1.0, 2.0)
 		"bomber":
-			pass
+			max_hp *= 8.0
+			speed *= 2.5
+			xp_value = 5
 		"teleporter":
 			speed *= 1.2
 			teleport_cooldown = randf_range(2.0, 4.0)
@@ -67,29 +79,36 @@ func setup_type(type: String) -> void:
 	hp = max_hp
 	_original_color = color
 	
-	# Apply sprite tint and scale based on enemy type
 	if sprite:
 		if type == "swarm":
-			sprite.texture = load("res://Sprite/NPC/swarm.png")
+			sprite.sprite_frames = load("res://Sprite/NPC/SwarmFrames.tres")
+		elif type == "sniper":
+			sprite.sprite_frames = load("res://Sprite/NPC/SniperFrames.tres")
+		elif type == "tank_blue" or type == "tank":
+			sprite.sprite_frames = load("res://Sprite/NPC/TankBlueFrames.tres")
+		elif type == "tank_yellow":
+			sprite.sprite_frames = load("res://Sprite/NPC/TankYellowFrames.tres")
+		elif type == "bomber":
+			sprite.sprite_frames = load("res://Sprite/NPC/BomberFrames.tres")
 		else:
-			sprite.texture = load("res://Sprite/NPC/zombie-final.png")
+			sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
 			
 		sprite.modulate = color
 		match type:
 			"swarm":
-				sprite.scale = Vector2(2.2, 2.2)
-			"tank":
-				sprite.scale = Vector2(3.8, 3.8)
+				sprite.scale = Vector2(1.2, 1.2) # Adjusted scale for swarm (64x64 frames)
+			"tank_blue", "tank", "tank_yellow":
+				sprite.scale = Vector2(1.5, 1.5) # adjusted for 90x64 frames
 			"sniper":
-				sprite.scale = Vector2(2.2, 2.2)
+				sprite.scale = Vector2(1.5, 1.5)
 			"bomber":
-				sprite.scale = Vector2(2.6, 2.6)
+				sprite.scale = Vector2(3.0, 3.0)
 			"teleporter":
 				sprite.scale = Vector2(2.2, 2.2)
 			"summoner":
 				sprite.scale = Vector2(3.0, 3.0)
 			_:
-				sprite.scale = Vector2(2.5, 2.5)
+				sprite.scale = Vector2(1.5, 1.5)
 	
 func _ready() -> void:
 	hp = max_hp
@@ -108,7 +127,7 @@ func _ready() -> void:
 
 
 func _physics_process(delta: float) -> void:
-	if GameManager.game_over or GameManager.paused_for_levelup:
+	if GameManager.game_over or GameManager.paused_for_levelup or is_dying:
 		return
 	var player = GameManager.player
 	if player == null:
@@ -168,6 +187,7 @@ func _physics_process(delta: float) -> void:
 		sniper_cooldown -= delta
 		if sniper_cooldown <= 0:
 			sniper_cooldown = 2.0
+			_attack_timer = 0.8
 			_fire_sniper_projectile(to_player.normalized())
 			
 	if enemy_type == "bomber":
@@ -219,15 +239,23 @@ func _physics_process(delta: float) -> void:
 		
 	move_and_slide()
 
+	if _hurt_timer > 0:
+		_hurt_timer -= delta
+	if _attack_timer > 0:
+		_attack_timer -= delta
+
 	# Update sprite direction and procedural animation
 	if sprite:
-		if velocity.length() > 5.0:
-			sprite.flip_h = velocity.x < 0
-			wobble_time += delta * 10.0
-			sprite.rotation = sin(wobble_time) * 0.08
+		sprite.flip_h = to_player.x < 0
+		
+		if _hurt_timer > 0:
+			if sprite.animation != "hurt": sprite.play("hurt")
+		elif _attack_timer > 0 or (enemy_type != "sniper" and dist < hit_radius + 25.0): # Attack anim for melee or when shooting
+			if sprite.animation != "attack": sprite.play("attack")
+		elif velocity.length() > 5.0:
+			if sprite.animation != "move": sprite.play("move")
 		else:
-			wobble_time = 0.0
-			sprite.rotation = lerpf(sprite.rotation, 0.0, delta * 10.0)
+			if sprite.animation != "idle": sprite.play("idle")
 
 	if _burn_time > 0:
 		_burn_time -= delta
@@ -256,7 +284,16 @@ func _physics_process(delta: float) -> void:
 
 
 func take_damage(amount: float) -> void:
+	if hp <= 0 or is_dying:
+		return
+	_hurt_timer = 0.3
 	var final_dmg = amount
+	
+	if enemy_type == "sniper":
+		var player = GameManager.player
+		if player:
+			var dir = (global_position - player.global_position).normalized()
+			apply_knockback(dir, 150.0)
 	var is_crit = false
 	if randf() < GameManager.passive_value("crit"):
 		final_dmg *= 2.0
@@ -285,17 +322,15 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	proj.setup(dir * 120.0, 15.0) # 15 damage
 	
 func _explode_bomber() -> void:
+	if is_dying: return
+	is_dying = true
 	var player = GameManager.player
-	if player and global_position.distance_to(player.global_position) < 60.0:
-		player.take_damage(40.0) # Massive damage
+	if player and global_position.distance_to(player.global_position) < 120.0:
+		player.take_damage(300.0) # Massive damage
 	
-	# Explosion visuals
-	var p = DEATH_PARTICLE.instantiate()
-	if p:
-		p.position = global_position
-		p.modulate = Color.RED
-		p.scale = Vector2(3.0, 3.0)
-		get_tree().current_scene.add_child(p)
+	if sprite:
+		sprite.play("death")
+		await sprite.animation_finished
 	queue_free()
 
 func _spawn_swarm() -> void:
@@ -456,17 +491,21 @@ func apply_burn(dps: float, duration: float) -> void:
 
 
 func _die() -> void:
+	if is_dying:
+		return
+	is_dying = true
+	
+	collision_layer = 0
+	collision_mask = 0
+	
+	if sprite:
+		sprite.play("death")
+	
 	GameManager.register_kill()
 	var orb = XP_ORB_SCENE.instantiate()
-	get_tree().current_scene.add_child(orb)
+	get_tree().current_scene.call_deferred("add_child", orb)
 	orb.global_position = global_position
 	orb.value = xp_value
-
-	if DEATH_PARTICLE:
-		var p = DEATH_PARTICLE.instantiate()
-		p.position = global_position
-		p.modulate = color
-		get_tree().current_scene.add_child(p)
 		
 	# Relic drop chance (1%)
 	var drop_rate = 0.01
@@ -475,8 +514,18 @@ func _die() -> void:
 	if randf() < drop_rate:
 		var r = Node2D.new()
 		r.set_script(load("res://scripts/Relic.gd"))
-		get_tree().current_scene.add_child(r)
+		get_tree().current_scene.call_deferred("add_child", r)
 		r.global_position = global_position
+
+	await get_tree().create_timer(1.5).timeout
+	
+	if enemy_type != "bomber" and DEATH_PARTICLE:
+		var p = DEATH_PARTICLE.instantiate()
+		if p:
+			p.position = global_position
+		p.modulate = color
+		p.scale = Vector2(0.5, 0.5)
+		get_tree().current_scene.add_child(p)
 
 	queue_free()
 

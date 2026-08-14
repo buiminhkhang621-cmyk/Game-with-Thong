@@ -10,7 +10,12 @@ func setup(vel: Vector2, dmg: float, c: Color = Color(1.0, 0.2, 0.2)) -> void:
 	velocity = vel
 	damage = dmg
 	_color = c
-	queue_redraw()
+	rotation = velocity.angle()
+
+func _ready() -> void:
+	var sprite = Sprite2D.new()
+	sprite.texture = load("res://Sprite/NPC/sniper_projectile.png")
+	add_child(sprite)
 
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup:
@@ -30,4 +35,4 @@ func _process(delta: float) -> void:
 			queue_free()
 
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, 6.0, _color)
+	pass

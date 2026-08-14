@@ -21,9 +21,9 @@ const GRAVITY: float = 800.0
 const JUMP_FORCE: float = 250.0
 
 @onready var camera: Camera2D = $Camera2D
-@onready var sprite: Sprite2D = $Sprite2D
+@onready var sprite: AnimatedSprite2D = $Sprite2D
 
-var wobble_time: float = 0.0
+
 
 
 func _ready() -> void:
@@ -55,6 +55,7 @@ var _berserker_time: float = 0.0
 var berserker_dmg_buff: float = 0.0
 
 var _landing_i_frames: float = 0.0
+var _hurt_timer: float = 0.0
 
 func _physics_process(delta: float) -> void:
 	_update_max_hp()
@@ -124,7 +125,19 @@ func _physics_process(delta: float) -> void:
 	else:
 		camera.offset = Vector2.ZERO
 
-	if GameManager.game_over or GameManager.paused_for_levelup:
+	if GameManager.game_over:
+		if sprite.animation != "death":
+			sprite.play("death")
+		_update_sprite_visuals()
+		return
+		
+	if GameManager.paused_for_levelup:
+		_update_sprite_visuals()
+		return
+		
+	if hp <= 0:
+		if sprite.animation != "death":
+			sprite.play("death")
 		_update_sprite_visuals()
 		return
 
@@ -146,15 +159,26 @@ func _physics_process(delta: float) -> void:
 	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0:
 		z_velocity = JUMP_FORCE
 		
-	# Update sprite flip and procedural animation
-	if velocity.length() > 0.1:
-		sprite.flip_h = velocity.x < 0
-		wobble_time += delta * 10.0
-		sprite.rotation = sin(wobble_time) * 0.08
+	if _hurt_timer > 0.0:
+		_hurt_timer -= delta
+		if sprite.animation != "hurt":
+			sprite.play("hurt")
 	else:
-		wobble_time = 0.0
-		sprite.rotation = lerpf(sprite.rotation, 0.0, delta * 10.0)
-		
+		# Update sprite flip and animation
+		if velocity.length() > 0.1:
+			sprite.flip_h = velocity.x < 0
+			if z_height == 0.0:
+				sprite.play("move")
+		else:
+			if z_height == 0.0:
+				sprite.play("idle")
+				
+		if z_height > 0.0:
+			if z_velocity > 0.0:
+				sprite.play("jumping")
+			else:
+				sprite.play("falling")
+			
 	_update_sprite_visuals()
 
 
@@ -223,6 +247,7 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 		
 	hp -= dmg
 	_shake_intensity = 15.0
+	_hurt_timer = 0.3 # 0.3 seconds of hurt animation
 	
 	if dmg >= 1.0:
 		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
