@@ -34,6 +34,7 @@ var sniper_cooldown: float = 0.0
 var bomber_fuse: float = -1.0
 var teleport_cooldown: float = 0.0
 var summon_cooldown: float = 0.0
+var mega_summon_timer: float = 0.0
 
 var hp: float
 
@@ -75,7 +76,8 @@ func setup_type(type: String) -> void:
 		"summoner":
 			speed *= 0.8
 			max_hp *= 1.5
-			summon_cooldown = randf_range(3.0, 5.0)
+			summon_cooldown = randf_range(10.0, 15.0)
+			mega_summon_timer = 100.0
 			
 	hp = max_hp
 	_original_color = color
@@ -88,7 +90,7 @@ func setup_type(type: String) -> void:
 				sprite.scale = Vector2(2.2, 2.2)
 			"tank_blue", "tank":
 				sprite.sprite_frames = load("res://Sprite/NPC/TankBlueFrames.tres")
-				sprite.scale = Vector2(6.25, 6.25)
+				sprite.scale = Vector2(4.16, 4.16)
 			"tank_yellow":
 				sprite.sprite_frames = load("res://Sprite/NPC/TankYellowFrames.tres")
 				sprite.scale = Vector2(2.7, 2.7)
@@ -99,12 +101,10 @@ func setup_type(type: String) -> void:
 				sprite.sprite_frames = load("res://Sprite/NPC/BomberFrames.tres")
 				sprite.scale = Vector2(2.6, 2.6)
 			"teleporter":
-				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
-				sprite.modulate = Color(0.8, 0.2, 0.8)
+				sprite.sprite_frames = load("res://Sprite/NPC/TeleporterFrames.tres")
 				sprite.scale = Vector2(2.2, 2.2)
 			"summoner":
-				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
-				sprite.modulate = Color(0.2, 0.8, 0.2)
+				sprite.sprite_frames = load("res://Sprite/NPC/SummonerFrames.tres")
 				sprite.scale = Vector2(3.0, 3.0)
 			_:
 				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
@@ -132,7 +132,7 @@ func _physics_process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup:
 		return
 	var player = GameManager.player
-	if player == null:
+	if player == null or is_dying:
 		return
 
 	# Handle status effect timers
@@ -225,9 +225,36 @@ func _physics_process(delta: float) -> void:
 			to_player = - to_player # run away
 		
 		summon_cooldown -= delta
+		mega_summon_timer -= delta
+		
 		if summon_cooldown <= 0:
-			summon_cooldown = randf_range(3.0, 5.0)
-			_spawn_swarm()
+			summon_cooldown = randf_range(10.0, 15.0)
+			_attack_timer = 0.5
+			
+			var mc = Sprite2D.new()
+			mc.set_script(load("res://scripts/MagicCircle.gd"))
+			get_tree().current_scene.add_child(mc)
+			mc.global_position = global_position
+			mc.setup("small")
+			
+			var batch = randi_range(20, 50)
+			for i in range(batch):
+				_spawn_swarm_near(50.0)
+				
+		if mega_summon_timer <= 0:
+			mega_summon_timer = 100.0
+			_attack_timer = 1.0
+			
+			var mc = Sprite2D.new()
+			mc.set_script(load("res://scripts/MagicCircle.gd"))
+			get_tree().current_scene.add_child(mc)
+			mc.global_position = global_position
+			mc.setup("big")
+			
+			_spawn_mega_swarm()
+		
+	if _attack_timer > 0:
+		_attack_timer -= delta
 		
 	if knockback_time > 0:
 		knockback_time -= delta
@@ -328,12 +355,39 @@ func _explode_bomber() -> void:
 
 	queue_free()
 
-func _spawn_swarm() -> void:
+func _spawn_swarm_near(radius: float) -> void:
 	var e = load("res://scenes/EnemyCommon.tscn").instantiate()
 	get_tree().current_scene.add_child(e)
-	e.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 15))
+	var angle = randf() * TAU
+	var dist = randf() * radius
+	e.global_position = global_position + Vector2(cos(angle), sin(angle)) * dist
 	if e.has_method("setup_type"):
 		e.setup_type("swarm")
+
+func _spawn_mega_swarm() -> void:
+	var types = ["normal", "swarm", "tank_blue", "tank_yellow", "sniper", "teleporter", "bomber", "summoner"]
+	for type in types:
+		var count = randi_range(5, 15)
+		for i in range(count):
+			var e = load("res://scenes/EnemyCommon.tscn").instantiate()
+			get_tree().current_scene.add_child(e)
+			var angle = randf() * TAU
+			# Toàn bản đồ (map wide), outside screen
+			var dist = randf_range(500.0, 1000.0) 
+			if GameManager.player:
+				e.global_position = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * dist
+			else:
+				e.global_position = global_position + Vector2(cos(angle), sin(angle)) * dist
+			if e.has_method("setup_type"):
+				e.setup_type(type)
+			
+			# Make it elite
+			e.max_hp *= 5.0
+			e.hp = e.max_hp
+			e.speed *= 1.5
+			e.scale *= 1.5
+			if e.has_node("Sprite2D"):
+				e.get_node("Sprite2D").modulate = Color.RED
 
 func apply_knockback(dir: Vector2, force: float) -> void:
 	if is_frozen: return # frozen enemies don't get knocked back as easily, or maybe they do?
@@ -492,7 +546,11 @@ func _die() -> void:
 	orb.global_position = global_position
 	orb.value = xp_value
 
-	if DEATH_PARTICLE:
+	if enemy_type == "summoner" and sprite:
+		sprite.play("death")
+		var t = get_tree().create_timer(1.1) # 11 frames at 10 fps
+		await t.timeout
+	elif DEATH_PARTICLE:
 		var p = DEATH_PARTICLE.instantiate()
 		p.position = global_position
 		p.modulate = color

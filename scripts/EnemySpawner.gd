@@ -72,5 +72,6 @@ func _spawn() -> void:
 	if tier == 1: hp_mult = 0.8
 	elif tier == 3: hp_mult = 1.5
 	
-	e.max_hp = (e.max_hp + floor(GameManager.run_time / 30.0) * 3.0) * hp_mult
+	var hp_scale = 2.0 + (GameManager.run_time / 600.0) * 48.0
+	e.max_hp = e.max_hp * hp_scale * hp_mult
 	e.hp = e.max_hp
