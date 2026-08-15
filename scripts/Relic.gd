@@ -15,7 +15,7 @@ func _process(delta: float) -> void:
 		return
 		
 	float_offset += delta * 2.0
-	var current_y = sin(float_offset) * 5.0
+
 	
 	if GameManager.player:
 		var dist = global_position.distance_to(GameManager.player.global_position)

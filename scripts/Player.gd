@@ -287,9 +287,9 @@ func _draw() -> void:
 			var r_anim = r * fmod(time + i * 0.33, 1.0)
 			draw_arc(Vector2.ZERO, r_anim, 0, TAU, 32, Color(0.6, 0.9, 1.0, 0.4 * (1.0 - r_anim/r)), 2.0)
 
+	var center = Vector2(0, -z_height - 20.0)
 	# Dark state shimmer effect around sprite
 	if in_dark_state:
-		var center = Vector2(0, -z_height - 20.0)
 		var time = Time.get_ticks_msec() / 1000.0
 		for i in range(4):
 			var angle = time * 2.0 + i * TAU / 4.0
@@ -297,7 +297,6 @@ func _draw() -> void:
 			draw_circle(orb_pos, 3.5, Color(0.3, 0.0, 0.5, 0.8))
 
 	# Class weapon visual (drawn relative to sprite position)
-	var center = Vector2(0, -z_height - 20.0)
 	match GameManager.current_class:
 		"berserker":
 			draw_line(center + Vector2(10, 4), center + Vector2(22, -8), Color(0.6, 0.2, 0.0), 3)
