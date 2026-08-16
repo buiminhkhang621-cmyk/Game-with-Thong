@@ -26,7 +26,8 @@ func _process(delta: float) -> void:
 
 	global_position += velocity * delta
 
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		var r_sq = (4.0 + e.hit_radius) * (4.0 + e.hit_radius)
 		if global_position.distance_squared_to(e.global_position) < r_sq:
 			e.take_damage(damage)

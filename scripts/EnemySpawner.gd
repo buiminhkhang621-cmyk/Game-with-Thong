@@ -28,11 +28,11 @@ func _process(delta: float) -> void:
 		_spawn_boss()
 
 	
-	if _timer >= interval and get_tree().get_nodes_in_group("enemies").size() < actual_max_enemies:
+	if _timer >= interval and GameManager.active_enemies.size() < actual_max_enemies:
 		_timer = 0.0
 		var batch_size = 1 + int(GameManager.run_time / 60.0) * (2 if tier < 3 else 3)
 		for i in range(batch_size):
-			if get_tree().get_nodes_in_group("enemies").size() >= actual_max_enemies:
+			if GameManager.active_enemies.size() >= actual_max_enemies:
 				break
 			_spawn()
 
@@ -84,7 +84,8 @@ func _spawn() -> void:
 
 func _spawn_boss() -> void:
 	var angle := randf() * TAU
-	var pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * spawn_radius
+	# Spawn closer to ensure player sees it immediately
+	var pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * 250.0
 	
 	var e = enemy_scene.instantiate()
 	get_tree().current_scene.add_child(e)
@@ -101,3 +102,4 @@ func _spawn_boss() -> void:
 	# Boss gets massive HP boost
 	e.max_hp = e.max_hp * 50.0 * hp_mult
 	e.hp = e.max_hp
+	GameManager.boss_spawned.emit()

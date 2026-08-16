@@ -108,7 +108,7 @@ func setup_type(type: String) -> void:
 		match type:
 			"boss":
 				sprite.sprite_frames = load("res://Sprite/NPC/NecromancerFrames.tres")
-				sprite.scale = Vector2(3.0, 3.0)
+				sprite.scale = Vector2(4.5, 4.5)
 				color = Color.WHITE
 				_original_color = color
 			"swarm":
@@ -128,10 +128,10 @@ func setup_type(type: String) -> void:
 				sprite.scale = Vector2(2.6, 2.6)
 			"teleporter":
 				sprite.sprite_frames = load("res://Sprite/NPC/TeleporterFrames.tres")
-				sprite.scale = Vector2(2.2, 2.2)
+				sprite.scale = Vector2(3.5, 3.5)
 			"summoner":
 				sprite.sprite_frames = load("res://Sprite/NPC/SummonerFrames.tres")
-				sprite.scale = Vector2(3.0, 3.0)
+				sprite.scale = Vector2(4.5, 4.5)
 			_:
 				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
 				sprite.scale = Vector2(2.5, 2.5)
@@ -544,7 +544,7 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	
 func _explode_bomber() -> void:
 	var player = GameManager.player
-	if player and global_position.distance_to(player.global_position) < 60.0:
+	if player and global_position.distance_squared_to(player.global_position) < 3600.0:
 		player.take_damage(40.0) # Massive damage
 	
 	# Explosion visuals
@@ -565,7 +565,8 @@ func _trigger_void_spread() -> void:
 	var void_count = 0
 	var pool = []
 	var r_sq = 350.0 * 350.0
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e.get("active_auras") != null and type_string(typeof(e.active_auras)) == "Array" and e.active_auras.has("void"):
 			void_count += 1
 		elif e != self and not e.is_dying:
@@ -720,7 +721,8 @@ func _check_reactions(dmg: float) -> void:
 func _get_nearest_enemy_except(exclude_node: Node) -> Node:
 	var best: Node = null
 	var best_dist_sq := 150.0 * 150.0
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e == exclude_node: continue
 		var d_sq: float = global_position.distance_squared_to(e.global_position)
 		if d_sq < best_dist_sq:
@@ -731,7 +733,8 @@ func _get_nearest_enemy_except(exclude_node: Node) -> Node:
 func _get_nearest_enemy_not_in(excludes: Array) -> Node:
 	var best: Node = null
 	var best_dist_sq := 150.0 * 150.0
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e in excludes: continue
 		var d_sq: float = global_position.distance_squared_to(e.global_position)
 		if d_sq < best_dist_sq:
@@ -742,11 +745,12 @@ func _get_nearest_enemy_not_in(excludes: Array) -> Node:
 
 func _get_nearest_enemies_except(exclude_node: Node, count: int, radius: float = 150.0) -> Array:
 	var pool = []
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e == exclude_node: continue
-		var d: float = global_position.distance_to(e.global_position)
-		if d < radius:
-			pool.append({"node": e, "dist": d})
+		var d_sq: float = global_position.distance_squared_to(e.global_position)
+		if d_sq < radius * radius:
+			pool.append({"node": e, "dist": d_sq})
 			
 	pool.sort_custom(func(a, b): return a.dist < b.dist)
 	
@@ -778,17 +782,26 @@ func _die() -> void:
 	GameManager.register_kill()
 	
 	var current_orbs = get_tree().get_nodes_in_group("xp_orbs")
-	if current_orbs.size() < 100:
+	if current_orbs.size() < 250:
 		var orb = XP_ORB_SCENE.instantiate()
 		get_tree().current_scene.add_child(orb)
 		orb.global_position = global_position
 		orb.value = xp_value
 	else:
-		# Merge with a random existing orb to save memory/FPS
-		var random_orb = current_orbs[randi() % current_orbs.size()]
-		random_orb.value += xp_value
-		var s = min(2.5, 1.0 + random_orb.value * 0.05)
-		random_orb.scale = Vector2(s, s)
+		# Merge with the nearest existing orb to save memory while keeping XP accessible
+		var best_orb = null
+		var best_d_sq = 1e9
+		for o in current_orbs:
+			if o.is_queued_for_deletion(): continue
+			var d_sq = global_position.distance_squared_to(o.global_position)
+			if d_sq < best_d_sq:
+				best_d_sq = d_sq
+				best_orb = o
+				
+		if best_orb:
+			best_orb.value += xp_value
+			var s = min(3.0, 1.0 + best_orb.value * 0.02)
+			best_orb.scale = Vector2(s, s)
 
 	if enemy_type == "summoner" and sprite:
 		sprite.play("death")

@@ -59,6 +59,7 @@ var berserker_dmg_buff: float = 0.0
 
 var _landing_i_frames: float = 0.0
 var _hurt_timer: float = 0.0
+var _ice_aura_timer: float = 0.0
 
 func _physics_process(delta: float) -> void:
 	_update_max_hp()
@@ -89,18 +90,22 @@ func _physics_process(delta: float) -> void:
 		
 	# Ice Resonance Aura
 	if GameManager.has_rune_resonance("ice"):
-		var ice_radius_sq = 150.0 * 150.0
-		var dmg_per_sec = 20.0 * (1.0 + GameManager.passive_value("damage"))
-		for e in get_tree().get_nodes_in_group("enemies"):
-			if global_position.distance_squared_to(e.global_position) <= ice_radius_sq:
-				if e.has_method("take_damage"):
-					e.take_damage(dmg_per_sec * delta)
-				if e.has_method("apply_element"):
-					e.ice_slow_time = max(e.ice_slow_time, 0.5)
-					e.color = Color(0.3, 0.6, 1.0)
-					if not e.is_frozen and randf() < 0.05 * delta:
-						e.is_frozen = true
-					e.queue_redraw()
+		_ice_aura_timer -= delta
+		if _ice_aura_timer <= 0.0:
+			_ice_aura_timer = 0.25 # Tick 4 times a second
+			var ice_radius_sq = 150.0 * 150.0
+			var tick_dmg = 20.0 * 0.25 * (1.0 + GameManager.passive_value("damage"))
+			for e in GameManager.active_enemies:
+				if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
+				if global_position.distance_squared_to(e.global_position) <= ice_radius_sq:
+					if e.has_method("take_damage"):
+						e.take_damage(tick_dmg)
+					if e.has_method("apply_element"):
+						e.ice_slow_time = max(e.ice_slow_time, 0.5)
+						e.color = Color(0.3, 0.6, 1.0)
+						if not e.is_frozen and randf() < 0.05 * 0.25:
+							e.is_frozen = true
+						e.queue_redraw()
 				
 	# Dark Resonance
 	if GameManager.has_rune_resonance("dark"):
@@ -208,10 +213,12 @@ func _update_max_hp() -> void:
 		GameManager.hp_changed.emit(hp, _effective_max_hp)
 
 func _apply_landing_knockback() -> void:
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e.has_method("apply_knockback"):
-			var dist = global_position.distance_to(e.global_position)
-			if dist < hit_radius + e.hit_radius + 40.0:
+			var r = hit_radius + e.hit_radius + 40.0
+			var dist_sq = global_position.distance_squared_to(e.global_position)
+			if dist_sq < r * r:
 				var dir = (e.global_position - global_position).normalized()
 				if dir.length() < 0.1:
 					dir = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
@@ -252,6 +259,11 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	_shake_intensity = 15.0
 	_hurt_timer = 0.3 # 0.3 seconds of hurt animation
 	
+	if sprite:
+		sprite.modulate = Color(1.0, 0.2, 0.2)
+		var tween = get_tree().create_tween()
+		tween.tween_property(sprite, "modulate", Color.WHITE, 0.15)
+	
 	if dmg >= 1.0:
 		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
 		get_tree().current_scene.add_child(dn)
@@ -259,9 +271,10 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 		dn.setup(dmg, false, Color(1.0, 0.4, 0.4))
 	
 	GameManager.hp_changed.emit(hp, _effective_max_hp)
+	
 	if hp <= 0.0:
 		hp = 0.0
-		GameManager.on_player_died()
+		GameManager.player_died.emit()
 
 
 func heal(amount: float) -> void:

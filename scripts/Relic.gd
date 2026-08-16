@@ -18,9 +18,12 @@ func _process(delta: float) -> void:
 
 	
 	if GameManager.player:
-		var dist = global_position.distance_to(GameManager.player.global_position)
-		if dist < 30.0:
-			_pickup()
+		var dist_sq = global_position.distance_squared_to(GameManager.player.global_position)
+		if dist_sq < 100.0 * 100.0:
+			var dir = (GameManager.player.global_position - global_position).normalized()
+			global_position += dir * 400.0 * delta
+			if dist_sq < 25.0 * 25.0:
+				_pickup()
 	
 	queue_redraw()
 

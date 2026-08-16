@@ -32,7 +32,10 @@ func _process(delta: float) -> void:
 	_lightning_visuals = keep_lightning
 	
 	if not GameManager.game_over and not GameManager.paused_for_levelup:
-		_frame_enemies = get_tree().get_nodes_in_group("enemies")
+		_frame_enemies = []
+		for e in GameManager.active_enemies:
+			if is_instance_valid(e) and not e.is_queued_for_deletion():
+				_frame_enemies.append(e)
 		for s in GameManager.active_skills:
 			var data: SkillData = s.data
 			var level: int = s.level

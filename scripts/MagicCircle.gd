@@ -7,9 +7,9 @@ var total_frames: int = 1
 func setup(type: String) -> void:
 	z_index = -1
 	if type == "small":
-		texture = load("res://Sprite/Environment/espantalho_summon-Sheet.png")
-		hframes = 78
-		vframes = 1
+		texture = load("res://Sprite/Environment/espantalho_summon_grid.png")
+		hframes = 10
+		vframes = 8
 		total_frames = 78
 		fps = 78.0 / 0.5 # Play in 0.5 seconds
 		scale = Vector2(0.4, 0.4)

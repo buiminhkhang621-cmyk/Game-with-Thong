@@ -24,6 +24,7 @@ func _ready() -> void:
 	GameManager.run_time_changed.connect(_on_time_changed)
 	GameManager.combo_updated.connect(_on_combo_updated)
 	GameManager.combo_reset.connect(_on_combo_reset)
+	GameManager.boss_spawned.connect(_on_boss_spawned)
 	
 	spell_info_label = Label.new()
 	spell_info_label.position = Vector2(10, 100)
@@ -103,6 +104,7 @@ func _on_score_changed(s: int) -> void:
 func _on_combo_updated(total_damage: float, hits: int) -> void:
 	if not combo_label:
 		return
+	combo_label.modulate.a = 1.0
 	combo_label.show()
 	combo_label.text = "%d Hits!\n%.1f Dmg" % [hits, total_damage]
 	
@@ -115,16 +117,32 @@ func _on_combo_updated(total_damage: float, hits: int) -> void:
 
 
 func _on_combo_reset() -> void:
-	if not combo_label:
-		return
-	if combo_tween:
-		combo_tween.kill()
-	combo_tween = create_tween()
-	combo_tween.tween_property(combo_label, "modulate:a", 0.0, 0.5)
-	combo_tween.tween_callback(func():
-		combo_label.hide()
-		combo_label.modulate.a = 1.0
-	)
+	if combo_label and combo_label.visible:
+		if combo_tween:
+			combo_tween.kill()
+		combo_tween = get_tree().create_tween()
+		combo_tween.tween_property(combo_label, "modulate:a", 0.0, 0.5)
+		combo_tween.tween_callback(func():
+			combo_label.hide()
+			combo_label.modulate.a = 1.0
+		)
+
+func _on_boss_spawned() -> void:
+	var boss_lbl = Label.new()
+	boss_lbl.text = "WARNING: BOSS APPROACHING!"
+	boss_lbl.add_theme_font_size_override("font_size", 48)
+	boss_lbl.add_theme_color_override("font_color", Color.RED)
+	boss_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	boss_lbl.add_theme_constant_override("outline_size", 8)
+	add_child(boss_lbl)
+	boss_lbl.set_anchors_preset(Control.PRESET_CENTER)
+	
+	var tween = get_tree().create_tween().set_loops(6)
+	tween.tween_property(boss_lbl, "modulate:a", 0.1, 0.2)
+	tween.tween_property(boss_lbl, "modulate:a", 1.0, 0.2)
+	
+	await get_tree().create_timer(3.0).timeout
+	boss_lbl.queue_free()
 
 
 func _refresh() -> void:

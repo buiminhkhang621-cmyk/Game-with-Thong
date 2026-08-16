@@ -38,7 +38,8 @@ func _process(delta: float) -> void:
 		rotation += rotation_speed * delta
 		
 		# Check collision
-		for enemy in get_tree().get_nodes_in_group("enemies"):
+		for enemy in GameManager.active_enemies:
+			if not is_instance_valid(enemy) or enemy.is_queued_for_deletion(): continue
 			var r_sq = (HIT_RADIUS + enemy.hit_radius) * (HIT_RADIUS + enemy.hit_radius)
 			if global_position.distance_squared_to(enemy.global_position) < r_sq:
 				enemy.take_damage(damage)

@@ -20,13 +20,16 @@ signal quest_completed(quest_id: String, title: String)
 
 signal combo_updated(total_damage: float, hits: int)
 signal combo_reset()
+signal boss_spawned()
 
 var bgm_player_1: AudioStreamPlayer
 var bgm_player_2: AudioStreamPlayer
 var active_bgm_player: AudioStreamPlayer
-var _bgm_tween: Tween
+var _bgm_tween: Tween = null
 var is_transitioning: bool = false
 var bgm_playlist: Array = []
+
+var active_enemies: Array = []
 
 const MAX_ACTIVE_SLOTS := 3
 const MAX_PASSIVE_SLOTS := 3
@@ -99,7 +102,9 @@ func add_combo_damage(amount: float) -> void:
 func _process(delta: float) -> void:
 	if game_over or paused_for_levelup:
 		return
+		
 	run_time += delta
+	active_enemies = get_tree().get_nodes_in_group("enemies")
 	run_time_changed.emit(run_time)
 	
 	_check_quest("time", run_time)
@@ -113,7 +118,15 @@ func _process(delta: float) -> void:
 			combo_hits = 0
 			combo_reset.emit()
 			
+	if Engine.time_scale < 1.0:
+		Engine.time_scale = move_toward(Engine.time_scale, 1.0, delta * 2.0)
+			
 	_update_bgm()
+
+func hit_stop(duration: float = 0.05) -> void:
+	Engine.time_scale = 0.1
+	await get_tree().create_timer(duration * 0.1, true, false, true).timeout
+	Engine.time_scale = 1.0
 
 
 func _update_bgm() -> void:
@@ -370,6 +383,7 @@ func trigger_void_nuke() -> void:
 					e._die()
 					count += 1
 	print("VOID NUKE TRIGGERED! Collapsed ", count, " void entities.")
+	hit_stop(0.1) # 0.1s hit stop for huge impact
 	_is_nuking = false
 
 func _trigger_level_up() -> void:
