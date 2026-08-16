@@ -13,8 +13,11 @@ extends CharacterBody2D
 var wobble_time: float = 0.0
 var _flash_timer: float = 0.0
 var _original_color: Color
-var _burn_dps: float = 0.0
 var _burn_time: float = 0.0
+var _burn_dps: float = 0.0
+
+var _void_target_timer: float = 0.0
+var _void_target: Node = null
 
 var ice_slow_time: float = 0.0
 var is_frozen: bool = false
@@ -38,6 +41,16 @@ var mega_summon_timer: float = 0.0
 
 var hp: float
 
+# Boss Variables
+var boss_phase: int = 1
+var boss_state: String = "idle"
+var boss_state_timer: float = 0.0
+var boss_attack_cooldown: float = 3.0
+var boss_target_pos: Vector2 = Vector2.ZERO
+var boss_warning_line: Line2D
+var boss_charge_dir: Vector2 = Vector2.ZERO
+var boss_charge_count: int = 0
+
 const XP_ORB_SCENE := preload("res://scenes/XPOrb.tscn")
 const DEATH_PARTICLE := preload("res://scenes/DeathParticle.tscn")
 
@@ -45,6 +58,14 @@ const DEATH_PARTICLE := preload("res://scenes/DeathParticle.tscn")
 func setup_type(type: String) -> void:
 	enemy_type = type
 	match type:
+		"boss":
+			speed *= 0.6
+			max_hp *= 10.0 # Will be multiplied again by 50 in Spawner
+			hit_radius *= 3.0
+			contact_dps *= 2.0
+			boss_phase = 1
+			boss_state = "idle"
+			boss_attack_cooldown = 4.0
 		"swarm":
 			speed *= 1.5
 			max_hp *= 0.3
@@ -85,6 +106,11 @@ func setup_type(type: String) -> void:
 	# Apply sprite tint, frames and scale based on enemy type
 	if sprite:
 		match type:
+			"boss":
+				sprite.sprite_frames = load("res://Sprite/NPC/NecromancerFrames.tres")
+				sprite.scale = Vector2(3.0, 3.0)
+				color = Color.WHITE
+				_original_color = color
 			"swarm":
 				sprite.sprite_frames = load("res://Sprite/NPC/SwarmFrames.tres")
 				sprite.scale = Vector2(2.2, 2.2)
@@ -110,12 +136,20 @@ func setup_type(type: String) -> void:
 				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
 				sprite.scale = Vector2(2.5, 2.5)
 				
-		sprite.play("idle")
+		if sprite.sprite_frames.has_animation("idle"):
+			sprite.play("idle")
+		elif sprite.sprite_frames.has_animation("default"):
+			sprite.play("default")
+		else:
+			sprite.play()
 	
 func _ready() -> void:
 	hp = max_hp
 	_original_color = color
 	add_to_group("enemies")
+	
+	if sprite:
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
@@ -153,21 +187,25 @@ func _physics_process(delta: float) -> void:
 	var target_pos: Vector2 = player.global_position
 	if void_mark_time > 0:
 		void_mark_time -= delta
-		var nearest_other = _get_nearest_enemy_except(self)
-		if nearest_other:
-			target_pos = nearest_other.global_position
+		_void_target_timer -= delta
+		if _void_target_timer <= 0.0:
+			_void_target_timer = 0.25
+			_void_target = _get_nearest_enemy_except(self)
+			if _void_target:
+				target_pos = _void_target.global_position
+			else:
+				_void_target = null
 			
 		if void_mark_time <= 0:
-			active_auras.erase("void")
-			queue_redraw()
-			
+			_trigger_void_spread()
 			if randf() < 0.20:
 				_die()
+				return
 			else:
-				var targets = _get_nearest_enemies_except(self, 2, 350.0)
-				for t in targets:
-					if t.has_method("apply_element") and not t.active_auras.has("void"):
-						t.apply_element("void", 0.0)
+				var base_dmg = max_hp * 0.2
+				if GameManager.current_class == "void_mage": base_dmg *= 1.2
+				take_damage(base_dmg)
+				if is_dying: return
 			
 	if reaction_cooldown > 0:
 		reaction_cooldown -= delta
@@ -182,6 +220,167 @@ func _physics_process(delta: float) -> void:
 		current_speed *= 0.6
 		
 	var should_move = true
+	
+	if enemy_type == "boss":
+		if hp <= max_hp * 0.5 and boss_phase == 1:
+			boss_phase = 2
+			_original_color = Color(0.8, 0.1, 1.0)
+			color = _original_color
+			
+		boss_attack_cooldown -= delta
+		
+		if boss_state == "idle":
+			should_move = true
+			if dist > 600.0 and boss_attack_cooldown <= 0:
+				boss_state = "blink"
+				boss_state_timer = 0.5
+				should_move = false
+			elif boss_attack_cooldown <= 0:
+				var rand_atk = randf()
+				if rand_atk < 0.4:
+					boss_state = "charge_warn"
+					boss_state_timer = 1.0
+					boss_charge_dir = to_player.normalized()
+					boss_charge_count = 3 if boss_phase == 2 else 1
+					
+					boss_warning_line = Line2D.new()
+					get_tree().current_scene.add_child(boss_warning_line)
+					boss_warning_line.width = 10.0
+					boss_warning_line.default_color = Color(1, 0, 0, 0.5)
+					boss_warning_line.points = [global_position, global_position + boss_charge_dir * 1000.0]
+				elif rand_atk < 0.7:
+					boss_state = "laser_warn"
+					boss_state_timer = 1.5
+					boss_charge_dir = to_player.normalized()
+					
+					boss_warning_line = Line2D.new()
+					get_tree().current_scene.add_child(boss_warning_line)
+					boss_warning_line.width = 40.0
+					boss_warning_line.default_color = Color(0.6, 0.1, 0.8, 0.4)
+					boss_warning_line.points = [global_position, global_position + boss_charge_dir * 800.0]
+				else:
+					boss_state = "bombard"
+					boss_state_timer = 2.0
+					for i in range(5 + (5 if boss_phase == 2 else 0)):
+						var warn = Sprite2D.new()
+						warn.set_script(load("res://scripts/MagicCircle.gd"))
+						get_tree().current_scene.add_child(warn)
+						if i == 0:
+							warn.global_position = player.global_position
+						else:
+							var r = randf() * TAU
+							warn.global_position = player.global_position + Vector2(cos(r), sin(r)) * randf_range(50, 300)
+						warn.setup("small")
+						warn.modulate = Color(1, 0.2, 0.2)
+						warn.set_meta("boss_bomb", true)
+						
+				boss_attack_cooldown = 4.0 if boss_phase == 1 else 2.5
+				should_move = false
+				
+		elif boss_state == "blink":
+			should_move = false
+			boss_state_timer -= delta
+			if sprite:
+				if int(boss_state_timer * 10) % 2 == 0:
+					sprite.modulate.a = 0.2
+				else:
+					sprite.modulate.a = 1.0
+				
+			if boss_state_timer <= 0:
+				var move_dir = player.velocity.normalized()
+				if player.velocity.length() < 10.0:
+					var r = randf() * TAU
+					move_dir = Vector2(cos(r), sin(r))
+				global_position = player.global_position + move_dir * 300.0
+				boss_state = "idle"
+				if sprite: sprite.modulate.a = 1.0
+				
+		elif boss_state == "charge_warn":
+			should_move = false
+			boss_state_timer -= delta
+			if is_instance_valid(boss_warning_line):
+				boss_warning_line.points[0] = global_position
+				
+			if boss_state_timer <= 0:
+				if is_instance_valid(boss_warning_line): boss_warning_line.queue_free()
+				boss_state = "charge_dash"
+				boss_state_timer = 0.4
+				
+		elif boss_state == "charge_dash":
+			should_move = false
+			velocity = boss_charge_dir * 1200.0
+			boss_state_timer -= delta
+			if boss_state_timer <= 0:
+				velocity = Vector2.ZERO
+				boss_charge_count -= 1
+				if boss_charge_count > 0:
+					boss_state = "charge_warn"
+					boss_state_timer = 0.5
+					boss_charge_dir = (player.global_position - global_position).normalized()
+					boss_warning_line = Line2D.new()
+					get_tree().current_scene.add_child(boss_warning_line)
+					boss_warning_line.width = 10.0
+					boss_warning_line.default_color = Color(1, 0, 0, 0.5)
+					boss_warning_line.points = [global_position, global_position + boss_charge_dir * 1000.0]
+				else:
+					boss_state = "idle"
+					
+		elif boss_state == "laser_warn":
+			should_move = false
+			boss_state_timer -= delta
+			if is_instance_valid(boss_warning_line):
+				boss_warning_line.points[0] = global_position
+				
+			if boss_state_timer <= 0:
+				boss_state = "laser_fire"
+				boss_state_timer = 2.0
+				if is_instance_valid(boss_warning_line):
+					boss_warning_line.default_color = Color(0.8, 0.1, 1.0, 1.0)
+					
+		elif boss_state == "laser_fire":
+			should_move = false
+			boss_state_timer -= delta
+			
+			var current_angle = boss_charge_dir.angle()
+			var target_angle = (player.global_position - global_position).angle()
+			var new_angle = lerp_angle(current_angle, target_angle, delta * 1.5)
+			boss_charge_dir = Vector2(cos(new_angle), sin(new_angle))
+			
+			if is_instance_valid(boss_warning_line):
+				boss_warning_line.points[0] = global_position
+				boss_warning_line.points[1] = global_position + boss_charge_dir * 1200.0
+				
+				var to_p = player.global_position - global_position
+				var dist_p = to_p.length()
+				if dist_p < 1200.0:
+					var angle_diff = abs(to_p.angle() - boss_charge_dir.angle())
+					if angle_diff > PI: angle_diff = TAU - angle_diff
+					var hit_angle = 40.0 / max(10.0, dist_p)
+					if angle_diff < hit_angle:
+						player.take_damage(60.0 * delta, true)
+						
+			if boss_state_timer <= 0:
+				if is_instance_valid(boss_warning_line): boss_warning_line.queue_free()
+				boss_state = "idle"
+				
+		elif boss_state == "bombard":
+			should_move = false
+			boss_state_timer -= delta
+			if boss_state_timer <= 0:
+				for n in get_tree().current_scene.get_children():
+					if n.has_meta("boss_bomb"):
+						if DEATH_PARTICLE:
+							var p = DEATH_PARTICLE.instantiate()
+							p.position = n.global_position
+							p.modulate = Color.RED
+							p.scale = Vector2(4.0, 4.0)
+							get_tree().current_scene.add_child(p)
+						
+						if player.global_position.distance_to(n.global_position) < 60.0:
+							player.take_damage(40.0, true)
+							
+						n.queue_free()
+				boss_state = "idle"
 	
 	if enemy_type == "sniper":
 		if dist < 150.0:
@@ -237,12 +436,12 @@ func _physics_process(delta: float) -> void:
 			mc.global_position = global_position
 			mc.setup("small")
 			
-			var batch = randi_range(20, 50)
+			var batch = randi_range(10, 25) # Reduced batch size
 			for i in range(batch):
 				_spawn_swarm_near(50.0)
 				
 		if mega_summon_timer <= 0:
-			mega_summon_timer = 100.0
+			mega_summon_timer = 60.0 # Changed to 60s
 			_attack_timer = 1.0
 			
 			var mc = Sprite2D.new()
@@ -290,6 +489,7 @@ func _physics_process(delta: float) -> void:
 		hp -= _burn_dps * delta
 		if hp <= 0:
 			_die()
+			return
 			
 	if not _is_flashing:
 		var target_color = _original_color
@@ -307,11 +507,22 @@ func _physics_process(delta: float) -> void:
 				sprite.modulate = color
 			queue_redraw()
 
-	if dist < hit_radius + player.hit_radius:
+	var actual_dist_to_player: float = global_position.distance_squared_to(player.global_position)
+	var pr_sq = (hit_radius + player.hit_radius) * (hit_radius + player.hit_radius)
+	if actual_dist_to_player < pr_sq:
 		player.take_damage(contact_dps * delta, true)
+		
+	# Infighting logic for Void
+	if void_mark_time > 0 and is_instance_valid(_void_target):
+		var vr_sq = (hit_radius + _void_target.hit_radius) * (hit_radius + _void_target.hit_radius)
+		if global_position.distance_squared_to(_void_target.global_position) < vr_sq:
+			if _void_target.has_method("take_damage"):
+				_void_target.take_damage(contact_dps * delta * 15.0)
 
 
 func take_damage(amount: float) -> void:
+	if is_dying: return
+	
 	var final_dmg = amount
 	var is_crit = false
 	if randf() < GameManager.passive_value("crit"):
@@ -355,7 +566,40 @@ func _explode_bomber() -> void:
 
 	queue_free()
 
+func _trigger_void_spread() -> void:
+	if not active_auras.has("void"): return
+	active_auras.erase("void")
+	queue_redraw()
+	
+	var void_count = 0
+	var pool = []
+	var r_sq = 350.0 * 350.0
+	for e in get_tree().get_nodes_in_group("enemies"):
+		if e.get("active_auras") != null and type_string(typeof(e.active_auras)) == "Array" and e.active_auras.has("void"):
+			void_count += 1
+		elif e != self and not e.is_dying:
+			var d_sq: float = global_position.distance_squared_to(e.global_position)
+			if d_sq < r_sq:
+				pool.append({"node": e, "dist_sq": d_sq})
+				
+	if void_count >= 60:
+		return
+		
+	var base_dmg = max_hp * 0.2
+	if GameManager.current_class == "void_mage": base_dmg *= 1.2
+	
+	pool.sort_custom(func(a, b): return a.dist_sq < b.dist_sq)
+	var targets = []
+	for i in range(min(2, pool.size())):
+		targets.append(pool[i].node)
+		
+	for t in targets:
+		if t.has_method("apply_element"):
+			t.apply_element("void", base_dmg)
+
 func _spawn_swarm_near(radius: float) -> void:
+	if get_tree().get_nodes_in_group("enemies").size() >= 250:
+		return
 	var e = load("res://scenes/EnemyCommon.tscn").instantiate()
 	get_tree().current_scene.add_child(e)
 	var angle = randf() * TAU
@@ -365,6 +609,8 @@ func _spawn_swarm_near(radius: float) -> void:
 		e.setup_type("swarm")
 
 func _spawn_mega_swarm() -> void:
+	if get_tree().get_nodes_in_group("enemies").size() >= 250:
+		return
 	var types = ["normal", "swarm", "tank_blue", "tank_yellow", "sniper", "teleporter", "bomber", "summoner"]
 	for type in types:
 		var count = randi_range(5, 15)
@@ -447,12 +693,12 @@ func apply_element(type: String, dmg: float) -> void:
 				GameManager.player._update_max_hp()
 				
 		"void":
-			if GameManager.has_rune_resonance("void") and randf() < 0.002: # 0.2%
+			if GameManager.has_rune_resonance("void") and randf() < 0.001: # 0.1%
 				GameManager.trigger_void_nuke()
 				return
 				
 			if void_mark_time <= 0:
-				void_mark_time = 1.5
+				void_mark_time = 4.0
 
 func _check_reactions(dmg: float) -> void:
 	if reaction_cooldown > 0: return
@@ -477,43 +723,28 @@ func _check_reactions(dmg: float) -> void:
 			target.apply_element(active_auras[0], dmg * 0.5)
 
 
-func _explode_void_mark(dmg: float) -> void:
-	void_mark_time = 0.0
-	queue_redraw()
-	
-	var base_dmg = dmg * 2.0
-	if GameManager.current_class == "void_mage":
-		base_dmg *= 1.2
-	
-	if randf() < 0.1: # 10% instant kill
-		_die()
-	else:
-		take_damage(base_dmg)
-		var targets = _get_nearest_enemies_except(self, 2)
-		for t in targets:
-			t.void_mark_time = 2.0
-			t.queue_redraw()
+
 
 
 func _get_nearest_enemy_except(exclude_node: Node) -> Node:
 	var best: Node = null
-	var best_dist := 150.0
+	var best_dist_sq := 150.0 * 150.0
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e == exclude_node: continue
-		var d: float = global_position.distance_to(e.global_position)
-		if d < best_dist:
-			best_dist = d
+		var d_sq: float = global_position.distance_squared_to(e.global_position)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
 			best = e
 	return best
 
 func _get_nearest_enemy_not_in(excludes: Array) -> Node:
 	var best: Node = null
-	var best_dist := 150.0
+	var best_dist_sq := 150.0 * 150.0
 	for e in get_tree().get_nodes_in_group("enemies"):
 		if e in excludes: continue
-		var d: float = global_position.distance_to(e.global_position)
-		if d < best_dist:
-			best_dist = d
+		var d_sq: float = global_position.distance_squared_to(e.global_position)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
 			best = e
 	return best
 
@@ -540,11 +771,33 @@ func apply_burn(dps: float, duration: float) -> void:
 
 
 func _die() -> void:
+	if is_dying: return
+	is_dying = true
+	
+	if active_auras.has("void"):
+		_trigger_void_spread()
+	
+	if is_instance_valid(boss_warning_line):
+		boss_warning_line.queue_free()
+	if enemy_type == "boss":
+		for n in get_tree().current_scene.get_children():
+			if n.has_meta("boss_bomb"):
+				n.queue_free()
+				
 	GameManager.register_kill()
-	var orb = XP_ORB_SCENE.instantiate()
-	get_tree().current_scene.add_child(orb)
-	orb.global_position = global_position
-	orb.value = xp_value
+	
+	var current_orbs = get_tree().get_nodes_in_group("xp_orbs")
+	if current_orbs.size() < 100:
+		var orb = XP_ORB_SCENE.instantiate()
+		get_tree().current_scene.add_child(orb)
+		orb.global_position = global_position
+		orb.value = xp_value
+	else:
+		# Merge with a random existing orb to save memory/FPS
+		var random_orb = current_orbs[randi() % current_orbs.size()]
+		random_orb.value += xp_value
+		var s = min(2.5, 1.0 + random_orb.value * 0.05)
+		random_orb.scale = Vector2(s, s)
 
 	if enemy_type == "summoner" and sprite:
 		sprite.play("death")

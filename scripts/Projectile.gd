@@ -27,7 +27,8 @@ func _process(delta: float) -> void:
 	global_position += velocity * delta
 
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if global_position.distance_to(e.global_position) < 4.0 + e.hit_radius:
+		var r_sq = (4.0 + e.hit_radius) * (4.0 + e.hit_radius)
+		if global_position.distance_squared_to(e.global_position) < r_sq:
 			e.take_damage(damage)
 			for r in runes:
 				if r != "damage" and e.has_method("apply_element"):

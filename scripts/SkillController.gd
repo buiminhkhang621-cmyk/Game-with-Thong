@@ -12,6 +12,7 @@ var _lightning_visuals: Array = []
 
 var _last_hp: float = 0.0
 var _spell_cooldowns: Dictionary = {}
+var _frame_enemies: Array = []
 
 const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
 
@@ -31,6 +32,7 @@ func _process(delta: float) -> void:
 	_lightning_visuals = keep_lightning
 	
 	if not GameManager.game_over and not GameManager.paused_for_levelup:
+		_frame_enemies = get_tree().get_nodes_in_group("enemies")
 		for s in GameManager.active_skills:
 			var data: SkillData = s.data
 			var level: int = s.level
@@ -124,21 +126,27 @@ func _fire_orbit(s_dict: Dictionary, data: SkillData, level: int) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	var spin := t * 3.4
 
+	var blade_positions = []
 	for i in range(count):
 		var ang: float = spin + TAU / count * i
-		var pos: Vector2 = player.global_position + Vector2(cos(ang), sin(ang)) * radius
-		for enemy in get_tree().get_nodes_in_group("enemies"):
-			var key: String = data.id + "_" + str(enemy.get_instance_id())
-			var last: float = _hit_cooldowns.get(key, 0.0)
-			if t - last < 0.45:
-				continue
-			if pos.distance_to(enemy.global_position) < 10.0 + enemy.hit_radius:
+		blade_positions.append(player.global_position + Vector2(cos(ang), sin(ang)) * radius)
+
+	for enemy in _frame_enemies:
+		var key: String = data.id + "_" + str(enemy.get_instance_id())
+		var last: float = _hit_cooldowns.get(key, 0.0)
+		if t - last < 0.45:
+			continue
+			
+		var r_sq = (10.0 + enemy.hit_radius) * (10.0 + enemy.hit_radius)
+		for pos in blade_positions:
+			if pos.distance_squared_to(enemy.global_position) < r_sq:
 				_hit_cooldowns[key] = t
 				enemy.take_damage(dmg)
 				if s_dict.has("runes"):
 					for r in s_dict.runes:
 						if r != "damage" and enemy.has_method("apply_element"):
 							enemy.apply_element(r, dmg * 0.5)
+				break
 
 
 func _fire_projectile(s_dict: Dictionary, data: SkillData, level: int) -> void:
@@ -201,8 +209,9 @@ func _fire_aoe(s_dict: Dictionary, data: SkillData, level: int) -> void:
 		
 	var duration: float = 3.0
 
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if player.global_position.distance_to(enemy.global_position) < radius + enemy.hit_radius:
+	for enemy in _frame_enemies:
+		var r_sq = (radius + enemy.hit_radius) * (radius + enemy.hit_radius)
+		if player.global_position.distance_squared_to(enemy.global_position) < r_sq:
 			if enemy.has_method("apply_burn"):
 				enemy.apply_burn(dps, duration)
 			if s_dict.has("runes"):
@@ -289,9 +298,9 @@ func _fire_whip(s_dict: Dictionary, data: SkillData, level: int) -> void:
 	var to_target = (target.global_position - player.global_position).normalized()
 	var center_angle = to_target.angle()
 	
-	for enemy in get_tree().get_nodes_in_group("enemies"):
-		var dist = player.global_position.distance_to(enemy.global_position)
-		if dist <= radius + enemy.hit_radius:
+	for enemy in _frame_enemies:
+		var r_sq = (radius + enemy.hit_radius) * (radius + enemy.hit_radius)
+		if player.global_position.distance_squared_to(enemy.global_position) <= r_sq:
 			var to_enemy = (enemy.global_position - player.global_position).normalized()
 			var angle_diff = abs(angle_difference(center_angle, to_enemy.angle()))
 			if angle_diff <= sweep_angle / 2.0:
@@ -315,11 +324,11 @@ func _fire_whip(s_dict: Dictionary, data: SkillData, level: int) -> void:
 
 func _find_nearest_enemy() -> Node:
 	var best: Node = null
-	var best_dist := 260.0
-	for e in get_tree().get_nodes_in_group("enemies"):
-		var d: float = player.global_position.distance_to(e.global_position)
-		if d < best_dist:
-			best_dist = d
+	var best_dist_sq := 260.0 * 260.0
+	for e in _frame_enemies:
+		var d_sq: float = player.global_position.distance_squared_to(e.global_position)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
 			best = e
 	return best
 
@@ -346,12 +355,12 @@ func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 		
 	for i in range(jumps):
 		var next_target: Node = null
-		var best_dist := 150.0
-		for e in get_tree().get_nodes_in_group("enemies"):
+		var best_dist_sq := 150.0 * 150.0
+		for e in _frame_enemies:
 			if e not in hit_enemies:
-				var d: float = current.global_position.distance_to(e.global_position)
-				if d < best_dist:
-					best_dist = d
+				var d_sq: float = current.global_position.distance_squared_to(e.global_position)
+				if d_sq < best_dist_sq:
+					best_dist_sq = d_sq
 					next_target = e
 		
 		if next_target:
@@ -381,9 +390,8 @@ func _fire_earthquake(_s: Dictionary, data: SkillData, level: int) -> void:
 	if player:
 		player._shake_intensity = 10.0
 		
-	for e in get_tree().get_nodes_in_group("enemies"):
-		var dist = player.global_position.distance_to(e.global_position)
-		if dist <= radius:
+	for e in _frame_enemies:
+		if player.global_position.distance_squared_to(e.global_position) <= radius * radius:
 			if e.has_method("take_damage"):
 				e.take_damage(dmg)
 			if e.has_method("apply_knockback"):

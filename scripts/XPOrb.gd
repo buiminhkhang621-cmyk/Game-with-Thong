@@ -6,6 +6,7 @@ var pickup_radius_base: float = 55.0
 
 
 func _ready() -> void:
+	add_to_group("xp_orbs")
 	queue_redraw()
 
 
@@ -15,13 +16,13 @@ func _process(delta: float) -> void:
 		return
 
 	var pr: float = pickup_radius_base * (1.0 + GameManager.passive_value("pickup"))
-	var dist: float = global_position.distance_to(player.global_position)
+	var dist_sq: float = global_position.distance_squared_to(player.global_position)
 
-	if dist < pr:
+	if dist_sq < pr * pr:
 		var dir: Vector2 = (player.global_position - global_position).normalized()
 		global_position += dir * 280.0 * delta
 
-	if dist < 14.0:
+	if dist_sq < 14.0 * 14.0:
 		GameManager.grant_xp(value)
 		GameManager.add_score(value * 5)
 		queue_free()

@@ -28,13 +28,14 @@ func _process(delta: float) -> void:
 	
 	# Check collision
 	for enemy in get_tree().get_nodes_in_group("enemies"):
-		if global_position.distance_to(enemy.global_position) < HIT_RADIUS + enemy.hit_radius:
+		var r_sq = (HIT_RADIUS + enemy.hit_radius) * (HIT_RADIUS + enemy.hit_radius)
+		if global_position.distance_squared_to(enemy.global_position) < r_sq:
 			if enemy.has_method("apply_element"):
 				enemy.apply_element(element_type, damage)
 			queue_free()
 			return
 			
-	if GameManager.player and global_position.distance_to(GameManager.player.global_position) > 600:
+	if GameManager.player and global_position.distance_squared_to(GameManager.player.global_position) > 600.0 * 600.0:
 		queue_free()
 
 func _draw() -> void:

@@ -7,6 +7,7 @@ extends Node2D
 @export var spawn_radius: float = 400.0
 
 var _timer: float = 0.0
+var _boss_spawned: bool = false
 
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup or GameManager.player == null:
@@ -21,6 +22,11 @@ func _process(delta: float) -> void:
 	var actual_max_enemies: int = max_enemies
 	if tier == 1: actual_max_enemies = 75
 	elif tier == 3: actual_max_enemies = 200
+	
+	if GameManager.run_time >= 600.0 and not _boss_spawned:
+		_boss_spawned = true
+		_spawn_boss()
+
 	
 	if _timer >= interval and get_tree().get_nodes_in_group("enemies").size() < actual_max_enemies:
 		_timer = 0.0
@@ -74,4 +80,24 @@ func _spawn() -> void:
 	
 	var hp_scale = 2.0 + (GameManager.run_time / 600.0) * 48.0
 	e.max_hp = e.max_hp * hp_scale * hp_mult
+	e.hp = e.max_hp
+
+func _spawn_boss() -> void:
+	var angle := randf() * TAU
+	var pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * spawn_radius
+	
+	var e = enemy_scene.instantiate()
+	get_tree().current_scene.add_child(e)
+	e.global_position = pos
+	
+	if e.has_method("setup_type"):
+		e.setup_type("boss")
+		
+	var tier: int = GameManager.current_map_tier
+	var hp_mult = 1.0
+	if tier == 1: hp_mult = 0.8
+	elif tier == 3: hp_mult = 1.5
+	
+	# Boss gets massive HP boost
+	e.max_hp = e.max_hp * 50.0 * hp_mult
 	e.hp = e.max_hp

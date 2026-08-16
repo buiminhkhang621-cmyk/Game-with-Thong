@@ -316,7 +316,12 @@ func get_total_spells() -> int:
 	var res_count = 1 if res.size() > 0 else 0
 	return crafted_spells.size() + res_count
 
+var _is_nuking: bool = false
+
 func trigger_void_nuke() -> void:
+	if _is_nuking: return
+	_is_nuking = true
+	
 	if player:
 		player._shake_intensity = 30.0
 	
@@ -335,10 +340,16 @@ func trigger_void_nuke() -> void:
 	
 	var count = 0
 	for e in get_tree().get_nodes_in_group("enemies"):
-		if e.has_method("_die"):
-			e._die()
-			count += 1
-	print("VOID NUKE TRIGGERED! Erased ", count, " enemies.")
+		if e.get("active_auras") != null and type_string(typeof(e.active_auras)) == "Array" and e.active_auras.has("void"):
+			if e.get("enemy_type") == "boss":
+				if e.has_method("take_damage"):
+					e.take_damage(e.max_hp * 0.25)
+			else:
+				if e.has_method("_die"):
+					e._die()
+					count += 1
+	print("VOID NUKE TRIGGERED! Collapsed ", count, " void entities.")
+	_is_nuking = false
 
 func _trigger_level_up() -> void:
 	if pending_level_ups <= 0:

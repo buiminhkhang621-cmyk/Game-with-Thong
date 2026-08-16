@@ -37,6 +37,9 @@ func _ready() -> void:
 	_effective_max_hp = base_max_hp
 	GameManager.register_player(self)
 	GameManager.level_changed.connect(_on_level_changed)
+	
+	if sprite:
+		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
@@ -86,10 +89,10 @@ func _physics_process(delta: float) -> void:
 		
 	# Ice Resonance Aura
 	if GameManager.has_rune_resonance("ice"):
-		var ice_radius = 150.0
+		var ice_radius_sq = 150.0 * 150.0
 		var dmg_per_sec = 20.0 * (1.0 + GameManager.passive_value("damage"))
 		for e in get_tree().get_nodes_in_group("enemies"):
-			if global_position.distance_to(e.global_position) <= ice_radius:
+			if global_position.distance_squared_to(e.global_position) <= ice_radius_sq:
 				if e.has_method("take_damage"):
 					e.take_damage(dmg_per_sec * delta)
 				if e.has_method("apply_element"):

@@ -39,7 +39,8 @@ func _process(delta: float) -> void:
 		
 		# Check collision
 		for enemy in get_tree().get_nodes_in_group("enemies"):
-			if global_position.distance_to(enemy.global_position) < HIT_RADIUS + enemy.hit_radius:
+			var r_sq = (HIT_RADIUS + enemy.hit_radius) * (HIT_RADIUS + enemy.hit_radius)
+			if global_position.distance_squared_to(enemy.global_position) < r_sq:
 				enemy.take_damage(damage)
 				for r in runes:
 					if r != "damage" and enemy.has_method("apply_element"):
@@ -51,7 +52,7 @@ func _process(delta: float) -> void:
 				break
 				
 		# Out of bounds check
-		if GameManager.player and global_position.distance_to(GameManager.player.global_position) > 600:
+		if GameManager.player and global_position.distance_squared_to(GameManager.player.global_position) > 600.0 * 600.0:
 			queue_free()
 			
 	elif state == 1:
@@ -74,7 +75,7 @@ func _process(delta: float) -> void:
 		# Landed, wait for player
 		if GameManager.player:
 			# If player is near marker
-			if GameManager.player.global_position.distance_to(target_landing_pos) < 25.0:
+			if GameManager.player.global_position.distance_squared_to(target_landing_pos) < 25.0 * 25.0:
 				if skill_controller and skill_controller.has_method("on_axe_caught"):
 					skill_controller.on_axe_caught()
 				queue_free()

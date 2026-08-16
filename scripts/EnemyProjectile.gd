@@ -30,7 +30,8 @@ func _process(delta: float) -> void:
 
 	var player = GameManager.player
 	if player:
-		if global_position.distance_to(player.global_position) < 6.0 + player.hit_radius:
+		var r_sq = (6.0 + player.hit_radius) * (6.0 + player.hit_radius)
+		if global_position.distance_squared_to(player.global_position) < r_sq:
 			player.take_damage(damage, true) # true means ground attack, so jumping dodges it
 			queue_free()
 
