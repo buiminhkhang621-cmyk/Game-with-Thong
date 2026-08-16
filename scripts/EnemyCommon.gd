@@ -136,12 +136,8 @@ func setup_type(type: String) -> void:
 				sprite.sprite_frames = load("res://Sprite/NPC/SkeletonFrames.tres")
 				sprite.scale = Vector2(2.5, 2.5)
 				
-		if sprite.sprite_frames.has_animation("idle"):
+		if sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
 			sprite.play("idle")
-		elif sprite.sprite_frames.has_animation("default"):
-			sprite.play("default")
-		else:
-			sprite.play()
 	
 func _ready() -> void:
 	hp = max_hp
@@ -476,13 +472,13 @@ func _physics_process(delta: float) -> void:
 				sprite.flip_h = to_player.x < 0
 		
 		if _hurt_timer > 0:
-			if sprite.animation != "hurt": sprite.play("hurt")
+			if sprite.animation != "hurt" and sprite.sprite_frames and sprite.sprite_frames.has_animation("hurt"): sprite.play("hurt")
 		elif _attack_timer > 0 or (enemy_type != "sniper" and dist < hit_radius + 25.0): # Attack anim for melee or when shooting
-			if sprite.animation != "attack": sprite.play("attack")
+			if sprite.animation != "attack" and sprite.sprite_frames and sprite.sprite_frames.has_animation("attack"): sprite.play("attack")
 		elif velocity.length() > 5.0:
-			if sprite.animation != "move": sprite.play("move")
+			if sprite.animation != "move" and sprite.sprite_frames and sprite.sprite_frames.has_animation("move"): sprite.play("move")
 		else:
-			sprite.play("idle")
+			if sprite.animation != "idle" and sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"): sprite.play("idle")
 			
 	if _burn_time > 0:
 		_burn_time -= delta
@@ -524,22 +520,17 @@ func take_damage(amount: float) -> void:
 	if is_dying: return
 	
 	var final_dmg = amount
-	var is_crit = false
 	if randf() < GameManager.passive_value("crit"):
 		final_dmg *= 2.0
 		color = Color.WHITE
 		_is_flashing = true
 		_flash_timer = 0.15
-		is_crit = true
 		if sprite:
 			sprite.modulate = Color.WHITE
 	hp -= final_dmg
 	
 	if final_dmg >= 1.0:
-		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-		get_tree().current_scene.add_child(dn)
-		dn.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 0))
-		dn.setup(final_dmg, is_crit)
+		GameManager.add_combo_damage(final_dmg)
 	
 	if hp <= 0.0:
 		_die()

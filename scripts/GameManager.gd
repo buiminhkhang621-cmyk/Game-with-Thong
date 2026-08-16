@@ -18,6 +18,9 @@ signal player_died
 signal score_changed(new_score: int)
 signal quest_completed(quest_id: String, title: String)
 
+signal combo_updated(total_damage: float, hits: int)
+signal combo_reset()
+
 var bgm_player_1: AudioStreamPlayer
 var bgm_player_2: AudioStreamPlayer
 var active_bgm_player: AudioStreamPlayer
@@ -81,6 +84,17 @@ var available_passive_skills: Array = [
 	load("res://resources/passives/crit_chance_up.tres"),
 ]
 
+var combo_damage: float = 0.0
+var combo_hits: int = 0
+var combo_timer: float = 0.0
+const COMBO_TIMEOUT: float = 2.0
+
+func add_combo_damage(amount: float) -> void:
+	combo_damage += amount
+	combo_hits += 1
+	combo_timer = COMBO_TIMEOUT
+	combo_updated.emit(combo_damage, combo_hits)
+
 
 func _process(delta: float) -> void:
 	if game_over or paused_for_levelup:
@@ -92,6 +106,13 @@ func _process(delta: float) -> void:
 	if active_curses.size() > 0:
 		_check_quest("curse_time", run_time)
 		
+	if combo_timer > 0:
+		combo_timer -= delta
+		if combo_timer <= 0:
+			combo_damage = 0.0
+			combo_hits = 0
+			combo_reset.emit()
+			
 	_update_bgm()
 
 
