@@ -166,14 +166,17 @@ func _physics_process(delta: float) -> void:
 
 	var speed_mult := move_speed * (1.0 + GameManager.passive_value("movespeed"))
 	if in_dark_state:
-		speed_mult *= 1.5 # +50% speed
+		speed_mult *= 1.5
+	if GameManager.weapons_disabled:
+		speed_mult *= 1.5 # +50% speed during silence trial!
 		
 	velocity = dir * speed_mult
 	move_and_slide()
 
 	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0 and _jump_cooldown <= 0.0:
 		z_velocity = JUMP_FORCE
-		_jump_cooldown = 0.5
+		_jump_cooldown = 0.8
+		_shake_intensity = 4.0
 		
 	if _hurt_timer > 0.0:
 		_hurt_timer -= delta
@@ -208,6 +211,10 @@ func _update_sprite_visuals() -> void:
 	# Visual tint based on game state
 	if in_dark_state:
 		sprite.modulate = Color(0.4, 0.1, 0.6, 0.9)  # Shadowy purple
+	elif GameManager.weapons_disabled:
+		sprite.modulate = Color(0.5, 0.8, 1.0) # Ethereal silence blue
+	elif GameManager.is_blood_sacrifice:
+		sprite.modulate = Color(1.0, 0.3, 0.3) # Crimson rage red
 	else:
 		sprite.modulate = Color.WHITE
 
@@ -226,18 +233,26 @@ func _update_max_hp() -> void:
 		GameManager.hp_changed.emit(hp, _effective_max_hp)
 
 func _apply_landing_knockback() -> void:
+	var is_silence = GameManager.weapons_disabled
+	var stomp_dmg = 65.0 if is_silence else 5.0
+	var stomp_force = 450.0 if is_silence else 200.0
+	var extra_r = 90.0 if is_silence else 40.0
+	
+	if is_silence:
+		_shake_intensity = 15.0
+	
 	for e in GameManager.active_enemies:
 		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e.has_method("apply_knockback"):
-			var r = hit_radius + e.hit_radius + 40.0
+			var r = hit_radius + e.hit_radius + extra_r
 			var dist_sq = global_position.distance_squared_to(e.global_position)
 			if dist_sq < r * r:
 				var dir = (e.global_position - global_position).normalized()
 				if dir.length() < 0.1:
 					dir = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
-				e.apply_knockback(dir, 200.0)
+				e.apply_knockback(dir, stomp_force)
 				if e.has_method("take_damage"):
-					e.take_damage(5.0)
+					e.take_damage(stomp_dmg)
 
 
 func take_damage(amount: float, is_ground_attack: bool = true) -> void:

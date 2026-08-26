@@ -31,7 +31,7 @@ func _process(delta: float) -> void:
 			keep_lightning.append(v)
 	_lightning_visuals = keep_lightning
 	
-	if not GameManager.game_over and not GameManager.paused_for_levelup:
+	if not GameManager.game_over and not GameManager.paused_for_levelup and not GameManager.weapons_disabled:
 		_frame_enemies = GameManager.active_enemies
 		for s in GameManager.active_skills:
 			var data: SkillData = s.data

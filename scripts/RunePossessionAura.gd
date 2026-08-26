@@ -23,7 +23,10 @@ func _process(delta: float) -> void:
 
 func _draw() -> void:
 	var unlocked = GameManager.unlocked_runes
-	if unlocked.size() == 0 and GameManager.resonance_active == "":
+	var active_res = GameManager.get_active_resonances()
+	var resonance_element = active_res[0] if active_res.size() > 0 else ""
+	
+	if unlocked.size() == 0 and resonance_element == "":
 		return
 		
 	var pulse = 0.85 + sin(pulse_time) * 0.15
@@ -33,8 +36,8 @@ func _draw() -> void:
 	var halo_radius = 42.0 + sin(pulse_time * 0.7) * 3.0
 	var halo_color = Color(0.8, 0.7, 1.0, 0.25 * pulse)
 	
-	if GameManager.resonance_active != "":
-		halo_color = RUNE_COLORS.get(GameManager.resonance_active, halo_color)
+	if resonance_element != "":
+		halo_color = RUNE_COLORS.get(resonance_element, halo_color)
 		halo_color.a = 0.45 * pulse
 		
 	# Outer celestial ring

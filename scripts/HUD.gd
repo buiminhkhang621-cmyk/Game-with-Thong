@@ -247,22 +247,22 @@ func _refresh() -> void:
 	info_label.text = "Lv %d  |  %d:%02d  |  %d  |  %d" % [_level, m, s, _kills, _score]
 	
 	if spell_info_label:
-		var txt = ""
-		if GameManager.collected_vong.size() > 0 or GameManager.collected_net.size() > 0:
-			txt += "Seals: " + str(GameManager.collected_vong) + "\n"
-			txt += "Crests: " + str(GameManager.collected_net) + "\n"
-		
+		var lines = []
 		var spells = []
 		for sp in GameManager.crafted_spells:
-			spells.append(sp.vong + " + " + sp.net)
+			spells.append("✦ SPELL: %s + %s" % [sp.vong.to_upper(), sp.net.to_upper()])
 		if spells.size() > 0:
-			txt += "Spells: " + str(spells) + "\n"
+			lines.append("\n".join(spells))
 		
 		var active_res = []
 		var types = ["lightning", "ice", "dark", "void"]
 		for t in types:
 			if GameManager.has_rune_resonance(t):
-				active_res.append(t.capitalize())
-		txt += "Resonance: " + (", ".join(active_res) if active_res.size() > 0 else "None")
-		
-		spell_info_label.text = txt
+				active_res.append("✦ RESONANCE: " + t.to_upper())
+		if active_res.size() > 0:
+			lines.append("\n".join(active_res))
+			
+		spell_info_label.text = "\n".join(lines)
+		spell_info_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.45))
+		spell_info_label.add_theme_color_override("font_outline_color", Color.BLACK)
+		spell_info_label.add_theme_constant_override("outline_size", 3)

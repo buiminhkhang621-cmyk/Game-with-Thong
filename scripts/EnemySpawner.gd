@@ -15,6 +15,10 @@ var _event_7m30_done: bool = false
 var _event_8m30_done: bool = false
 var _blood_moon_timer: float = 0.0
 
+func _ready() -> void:
+	var event_mgr = RandomEventManager.new()
+	add_child(event_mgr)
+
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup or GameManager.player == null:
 		return

@@ -72,50 +72,56 @@ func setup_type(type: String) -> void:
 			hit_radius *= 0.6
 			contact_dps *= 1.0
 			armor = 0.0
-		"tank_blue":
-			speed *= 0.55
-			max_hp *= 42.0
-			hit_radius *= 2.0
-			contact_dps *= 1.3
-			armor = 0.60
-		"tank_yellow":
+		"tank_blue", "tank":
 			speed *= 0.65
-			max_hp *= 24.0
-			hit_radius *= 1.5
-			contact_dps *= 1.3
-			armor = 0.48
-		"tank":
-			speed *= 0.55
-			max_hp *= 15.0
+			max_hp *= 6.0
+			hit_radius *= 2.5
+			contact_dps *= 1.8
+			armor = 0.62 # 62% Armor Heavy Tank
+		"tank_yellow":
+			speed *= 0.8
+			max_hp *= 3.8
 			hit_radius *= 2.0
-			contact_dps *= 1.2
-			armor = 0.40
+			contact_dps *= 1.4
+			armor = 0.50 # 50% Armor Golem
 		"sniper":
 			speed *= 0.95
-			max_hp *= 0.8
+			max_hp *= 1.2
 			contact_dps *= 1.5
-			armor = 0.15
+			armor = 0.30
 			sniper_cooldown = randf_range(0.8, 1.4)
 		"bomber":
-			speed *= 1.35
-			max_hp *= 1.3
+			speed *= 1.4
+			max_hp *= 1.6
 			contact_dps *= 1.0
-			armor = 0.0
+			armor = 0.25
 		"teleporter":
-			speed *= 1.35
-			contact_dps *= 1.5
-			armor = 0.15
+			speed *= 1.45
+			max_hp *= 1.5
+			contact_dps *= 1.6
+			armor = 0.32
 			teleport_cooldown = randf_range(1.6, 2.8)
 		"summoner":
-			speed *= 1.1
-			max_hp *= 3.2
-			contact_dps *= 1.2
-			armor = 0.20
-			summon_cooldown = randf_range(4.0, 7.0)
-			mega_summon_timer = 35.0
+			speed *= 1.2
+			max_hp *= 4.5
+			contact_dps *= 1.4
+			armor = 0.42
+			summon_cooldown = randf_range(2.0, 3.2) # 2x faster!
+			mega_summon_timer = randf_range(18.0, 26.0)
 		_:
-			armor = 0.10
+			armor = 0.22 # Base 22% Armor for normal/swarm
 			
+	# Exponential Scaling over Time
+	var t_minutes = GameManager.run_time / 60.0
+	var hp_mult = 1.0 + pow(t_minutes, 1.5) * 0.45
+	var dmg_mult = 1.0 + pow(t_minutes, 1.3) * 0.35
+	var spd_mult = 1.0 + min(0.65, pow(t_minutes, 1.1) * 0.12)
+	
+	max_hp *= hp_mult
+	contact_dps *= dmg_mult
+	speed *= spd_mult
+	armor = min(0.82, armor + t_minutes * 0.015)
+	
 	hp = max_hp
 	_original_color = color
 	
@@ -328,8 +334,8 @@ func _physics_process(delta: float) -> void:
 		elif boss_state == "charge_warn":
 			should_move = false
 			boss_state_timer -= delta
-			if is_instance_valid(boss_warning_line):
-				boss_warning_line.points[0] = global_position
+			if is_instance_valid(boss_warning_line) and boss_warning_line.get_point_count() > 0:
+				boss_warning_line.set_point_position(0, global_position)
 				
 			if boss_state_timer <= 0:
 				if is_instance_valid(boss_warning_line): boss_warning_line.queue_free()
@@ -358,8 +364,8 @@ func _physics_process(delta: float) -> void:
 		elif boss_state == "laser_warn":
 			should_move = false
 			boss_state_timer -= delta
-			if is_instance_valid(boss_warning_line):
-				boss_warning_line.points[0] = global_position
+			if is_instance_valid(boss_warning_line) and boss_warning_line.get_point_count() > 0:
+				boss_warning_line.set_point_position(0, global_position)
 				
 			if boss_state_timer <= 0:
 				boss_state = "laser_fire"
@@ -376,9 +382,9 @@ func _physics_process(delta: float) -> void:
 			var new_angle = lerp_angle(current_angle, target_angle, delta * 1.5)
 			boss_charge_dir = Vector2(cos(new_angle), sin(new_angle))
 			
-			if is_instance_valid(boss_warning_line):
-				boss_warning_line.points[0] = global_position
-				boss_warning_line.points[1] = global_position + boss_charge_dir * 1200.0
+			if is_instance_valid(boss_warning_line) and boss_warning_line.get_point_count() >= 2:
+				boss_warning_line.set_point_position(0, global_position)
+				boss_warning_line.set_point_position(1, global_position + boss_charge_dir * 1200.0)
 				
 				var to_p = player.global_position - global_position
 				var dist_p = to_p.length()
@@ -449,10 +455,10 @@ func _physics_process(delta: float) -> void:
 			_attack_timer = 0.3
 			
 	if enemy_type == "summoner":
-		if dist < 260.0:
+		if dist < 550.0:
 			should_move = true
-			to_player = - to_player # Run away to maintain distance!
-		elif dist > 450.0:
+			to_player = - to_player # Run away 4x further to maintain safe artillery range!
+		elif dist > 780.0:
 			should_move = true
 		else:
 			should_move = false
@@ -461,8 +467,8 @@ func _physics_process(delta: float) -> void:
 		mega_summon_timer -= delta
 		
 		if summon_cooldown <= 0:
-			summon_cooldown = randf_range(5.0, 8.0)
-			_attack_timer = 0.5
+			summon_cooldown = randf_range(2.0, 3.2) # 2x faster summon!
+			_attack_timer = 0.4
 			
 			var mc = Sprite2D.new()
 			mc.set_script(load("res://scripts/MagicCircle.gd"))
@@ -470,21 +476,37 @@ func _physics_process(delta: float) -> void:
 			mc.global_position = global_position
 			mc.setup("small")
 			
-			var batch = randi_range(12, 20)
-			for i in range(batch):
-				_spawn_swarm_near(80.0)
+			# Summon 3-5 Elemental Elite Minions
+			var elite_types = ["tank_blue", "tank_yellow", "sniper", "bomber", "teleporter", "swarm"]
+			var elements = ["void", "lightning", "ice", "dark"]
+			var count = randi_range(3, 5)
+			for i in range(count):
+				if get_tree().get_nodes_in_group("enemies").size() >= 250: break
+				var e = load("res://scenes/EnemyCommon.tscn").instantiate()
+				get_tree().current_scene.add_child(e)
+				e.global_position = global_position + Vector2(randf_range(-140, 140), randf_range(-140, 140))
+				var chosen_type = elite_types[randi() % elite_types.size()]
+				var chosen_element = elements[randi() % elements.size()]
+				if e.has_method("setup_type"): e.setup_type(chosen_type)
+				e.max_hp *= 2.2
+				e.hp = e.max_hp
+				e.speed *= 1.25
+				e.armor = min(0.75, e.armor + 0.15)
+				if e.has_method("apply_element"): e.apply_element(chosen_element, 0.0)
 				
 		if mega_summon_timer <= 0:
-			mega_summon_timer = 35.0
-			_attack_timer = 1.0
+			mega_summon_timer = randf_range(18.0, 26.0)
+			_attack_timer = 0.8
 			
-			var mc = Sprite2D.new()
-			mc.set_script(load("res://scripts/MagicCircle.gd"))
-			get_tree().current_scene.add_child(mc)
-			mc.global_position = global_position
-			mc.setup("big")
-			
-			_spawn_mega_swarm()
+			# 50% chance to trigger map-wide mega swarm
+			if randf() < 0.50:
+				var mc = Sprite2D.new()
+				mc.set_script(load("res://scripts/MagicCircle.gd"))
+				get_tree().current_scene.add_child(mc)
+				mc.global_position = global_position
+				mc.setup("big")
+				
+				_spawn_mega_swarm()
 		
 	if _attack_timer > 0:
 		_attack_timer -= delta
@@ -667,26 +689,20 @@ func apply_element(type: String, dmg: float) -> void:
 			
 			var current: Node = self
 			var hit_enemies = [self]
-			var path = [global_position]
 			
 			for i in range(jumps):
 				var next_target = current._get_nearest_enemy_not_in(hit_enemies)
 				if next_target:
-					path.append(next_target.global_position)
 					hit_enemies.append(next_target)
 					if next_target.has_method("take_damage"):
 						next_target.take_damage(chain_dmg)
+						
+					var fx = ElementalVisualEffect.new()
+					get_tree().current_scene.add_child(fx)
+					fx.setup_lightning(current.global_position, next_target.global_position)
 					current = next_target
 				else:
 					break
-			
-			if path.size() >= 2:
-				var line = Line2D.new()
-				line.set_script(load("res://scripts/LightningLine.gd"))
-				line.points = path
-				line.width = 3.0
-				line.default_color = Color(1.0, 0.9, 0.2)
-				get_tree().current_scene.add_child(line)
 		"ice":
 			var freeze_chance = 0.1
 			if randf() < freeze_chance:
@@ -695,6 +711,10 @@ func apply_element(type: String, dmg: float) -> void:
 			elif randf() < 0.8:
 				ice_slow_time = 1.5
 			color = Color(0.3, 0.6, 1.0)
+			
+			var fx = ElementalVisualEffect.new()
+			get_tree().current_scene.add_child(fx)
+			fx.setup_ice_shatter(global_position)
 			queue_redraw()
 		"dark":
 			var cap_hp = 50.0 if GameManager.has_rune_resonance("dark") else 25.0
@@ -705,6 +725,9 @@ func apply_element(type: String, dmg: float) -> void:
 				GameManager.stolen_dark_dmg = min(cap_dmg, GameManager.stolen_dark_dmg + 0.001)
 			if GameManager.player:
 				GameManager.player._update_max_hp()
+				var fx = ElementalVisualEffect.new()
+				get_tree().current_scene.add_child(fx)
+				fx.setup_dark_siphon(global_position, GameManager.player.global_position)
 				
 		"void":
 			if GameManager.has_rune_resonance("void") and randf() < 0.002: # 0.2%

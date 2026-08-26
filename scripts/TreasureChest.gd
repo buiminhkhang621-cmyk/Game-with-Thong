@@ -3,20 +3,21 @@ extends Area2D
 
 var float_offset: float = 0.0
 var is_opened: bool = false
+var anim_sparkles: float = 0.0
 
 func _ready() -> void:
 	float_offset = randf() * TAU
 	add_to_group("treasure_chests")
-	add_to_group("destructibles") # Allows attacks to hit it
+	add_to_group("destructibles")
 	
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
-	shape.radius = 28.0
+	shape.radius = 36.0
 	col.shape = shape
 	add_child(col)
 	
 	collision_layer = 4
-	collision_mask = 2 # Player and weapons
+	collision_mask = 3 # Overlaps with Player (layer 2) and Projectiles/Weapons (layer 1)
 	
 	body_entered.connect(_on_body_entered)
 	area_entered.connect(_on_area_entered)
@@ -25,12 +26,15 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if is_opened or GameManager.game_over:
 		return
-	float_offset += delta * 3.5
+		
+	float_offset += delta * 3.0
+	anim_sparkles += delta * 5.0
 	
-	# Proximity check (guarantees opening when player approaches)
-	if GameManager.player:
-		var dist_sq = global_position.distance_squared_to(GameManager.player.global_position)
-		if dist_sq < 45.0 * 45.0:
+	# Proximity Auto-Trigger (100% reliable contact trigger)
+	var player = GameManager.player
+	if player and is_instance_valid(player):
+		var dist_sq = global_position.distance_squared_to(player.global_position)
+		if dist_sq <= 55.0 * 55.0:
 			_open_chest()
 			return
 			
@@ -40,8 +44,8 @@ func take_damage(_amount: float) -> void:
 	if not is_opened:
 		_open_chest()
 
-func _on_body_entered(body: Node2D) -> void:
-	if not is_opened and body is Player:
+func _on_body_entered(_body: Node2D) -> void:
+	if not is_opened:
 		_open_chest()
 
 func _on_area_entered(_area: Area2D) -> void:
@@ -53,7 +57,7 @@ func _open_chest() -> void:
 		return
 	is_opened = true
 	
-	# Open UI
+	# Burst particle / flash
 	get_tree().paused = true
 	var script = load("res://scripts/ChestUI.gd")
 	if script:
@@ -63,28 +67,38 @@ func _open_chest() -> void:
 	queue_free()
 
 func _draw() -> void:
-	var y_off = sin(float_offset) * 4.0
+	var y_off = sin(float_offset) * 3.5
 	var pos = Vector2(0, y_off)
+	var pulse = 0.85 + sin(anim_sparkles) * 0.15
 	
-	# Golden Aura & Pulse
-	draw_circle(pos, 24.0, Color(1.0, 0.8, 0.2, 0.28))
-	draw_arc(pos, 28.0, 0, TAU, 24, Color(1.0, 0.85, 0.3, 0.6), 2.5)
+	# 1. Antique Golden Divine Aura Ring
+	draw_circle(pos, 28.0, Color(0.95, 0.75, 0.25, 0.18 * pulse))
+	draw_arc(pos, 32.0, 0, TAU, 24, Color(1.0, 0.85, 0.38, 0.5 * pulse), 1.5)
 	
-	# Chest Base (Brown & Gold trim)
-	var base_rect = Rect2(pos.x - 18, pos.y - 4, 36, 22)
-	draw_rect(base_rect, Color(0.45, 0.28, 0.12), true)
-	draw_rect(base_rect, Color(0.95, 0.8, 0.2), false, 2.5)
+	# Floating Sparkle Stars
+	for i in range(4):
+		var a = (TAU / 4.0) * i + anim_sparkles * 0.5
+		var sp = pos + Vector2(cos(a), sin(a) * 0.7) * (36.0 + sin(anim_sparkles + i) * 4.0)
+		draw_circle(sp, 2.0, Color(1.0, 0.95, 0.6, 0.8))
 	
-	# Chest Lid (Curved / Angled Top)
+	# 2. Chest Base (Antique Ebony / Dark Iron with Gilded Filigree)
+	var base_rect = Rect2(pos.x - 22, pos.y - 4, 44, 24)
+	draw_rect(base_rect, Color(0.12, 0.10, 0.14), true) # Dark Obsidian Iron
+	draw_rect(base_rect, Color(0.85, 0.72, 0.32), false, 2.5) # Antique Gold Trim
+	
+	# 3. Chest Arched Lid
 	var lid_pts = PackedVector2Array([
-		pos + Vector2(-20, -4),
-		pos + Vector2(-15, -16),
-		pos + Vector2(15, -16),
-		pos + Vector2(20, -4)
+		pos + Vector2(-24, -4),
+		pos + Vector2(-18, -18),
+		pos + Vector2(18, -18),
+		pos + Vector2(24, -4)
 	])
-	draw_polygon(lid_pts, PackedColorArray([Color(0.58, 0.38, 0.18)]))
-	draw_polyline(lid_pts, Color(1.0, 0.85, 0.25), 2.5)
+	draw_polygon(lid_pts, PackedColorArray([Color(0.20, 0.16, 0.22)]))
+	draw_polyline(lid_pts, Color(0.95, 0.80, 0.35), 2.5)
 	
-	# Center Keyhole / Gem
-	draw_circle(pos + Vector2(0, 4), 4.5, Color(1.0, 0.9, 0.3))
-	draw_circle(pos + Vector2(0, 4), 2.0, Color(0.2, 0.1, 0.05))
+	# 4. Central Relic Lock / Glowing Sigil Gem
+	draw_circle(pos + Vector2(0, 4), 5.5, Color(1.0, 0.85, 0.35))
+	draw_circle(pos + Vector2(0, 4), 3.0, Color(0.85, 0.25, 0.95)) # Amethyst Core Gem
+	
+	# 5. Floating Interaction Hint
+	draw_arc(pos, 44.0, -PI * 0.75, -PI * 0.25, 12, Color(1.0, 0.9, 0.4, 0.6 * pulse), 2.0)

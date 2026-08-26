@@ -49,6 +49,10 @@ var bgm_playlist: Array = []
 
 var active_enemies: Array = []
 
+var weapons_disabled: bool = false
+var is_blood_sacrifice: bool = false
+var is_abyssal_fog: bool = false
+
 const MAX_ACTIVE_SLOTS := 4
 const MAX_PASSIVE_SLOTS := 4
 
@@ -154,6 +158,9 @@ func _process(delta: float) -> void:
 			
 	if Engine.time_scale < 1.0:
 		Engine.time_scale = move_toward(Engine.time_scale, 1.0, delta * 2.0)
+		
+	if is_blood_sacrifice and player and is_instance_valid(player):
+		player.take_damage(2.0 * delta, false)
 			
 	_update_bgm()
 
@@ -313,10 +320,17 @@ func register_kill() -> void:
 	add_score(10)
 	_check_quest("total_kills", total_kills)
 	
-	# Vampiric Chalice Relic: Heal +2 HP every 10 kills
-	if active_relics.has("vampiric_chalice") and kills % 10 == 0:
-		if player:
-			player.heal(2.0)
+	# Death Scythe Shard: permanent Might stack per kill!
+	if active_relics.has("death_scythe_shard"):
+		scythe_kill_stacks += 1
+		
+	# Vampiric Chalice Relic: Heal on kills
+	if active_relics.has("vampiric_chalice"):
+		if player and is_instance_valid(player):
+			player.heal(1.5)
+			
+	if is_blood_sacrifice and player:
+		player.heal(4.0)
 
 
 func add_score(amount: int) -> void:
@@ -332,33 +346,40 @@ func on_player_died() -> void:
 	player_died.emit()
 
 
+var elixir_armor_bonus: float = 0.0
+var elixir_cdr_bonus: float = 0.0
+var elixir_speed_bonus: float = 0.0
+var elixir_crit_bonus: float = 0.0
+var scythe_kill_stacks: int = 0
+
 func relic_value(stat: String) -> float:
 	var val: float = 0.0
 	for r in active_relics:
 		match r:
 			"heart_of_the_abyss":
-				if stat == "flat_hp": val += 100.0
-				elif stat == "movespeed": val -= 0.25
+				if stat == "flat_hp": val += 150.0
+				elif stat == "cooldown": val -= 0.25
 			"blood_pact_blade":
-				if stat == "damage": val += 0.50
-				elif stat == "hp_mult": val -= 0.35
+				if stat == "damage": val += 1.00
+				elif stat == "hp_mult": val -= 0.30
 			"chronos_hourglass":
-				if stat == "cooldown": val += 0.25
-				elif stat == "pickup": val -= 0.15
+				if stat == "cooldown": val += 0.45
 			"vampiric_chalice":
-				if stat == "damage": val -= 0.10
+				if stat == "hp_mult": val -= 0.25
+				elif stat == "pickup": val -= 0.30
 			"greed_ring":
-				if stat == "flat_hp": val -= 15.0
+				if stat == "xp_mult": val += 1.50
 			"titan_aegis":
-				if stat == "armor": val += 0.35
-				elif stat == "cooldown": val -= 0.10
+				if stat == "armor": val += 0.60
+				elif stat == "movespeed": val -= 0.30
 			"death_scythe_shard":
-				if stat == "crit": val += 0.30
+				if stat == "crit": val += 0.50
+				elif stat == "hp_mult": val -= 0.40
+				elif stat == "damage": val += min(3.0, scythe_kill_stacks * 0.005)
 			"shadow_boots":
-				if stat == "movespeed": val += 0.35
+				if stat == "movespeed": val += 0.50
 			"ancient_censer":
-				if stat == "flat_hp": val += 25.0
-				elif stat == "pickup": val += 0.15
+				if stat == "pickup": val -= 0.50
 			"void_prism":
 				pass
 	return val
@@ -376,22 +397,32 @@ func passive_value(stat: String) -> float:
 	total += relic_value(stat)
 	
 	if stat == "cooldown":
+		total += elixir_cdr_bonus
 		if current_class == "assassin":
 			total += 0.20
 		if total_levels >= 5:
-			total += 0.03 # Tier 1
+			total += 0.03
 		if has_rune_resonance("lightning"):
 			total += 0.20
-		return min(0.65, total)
+		return min(0.75, total)
 			
 	if stat == "movespeed":
+		total += elixir_speed_bonus
 		if has_rune_resonance("lightning"):
 			total += 0.20
+			
+	if stat == "armor":
+		total += elixir_armor_bonus
+		
+	if stat == "crit":
+		total += elixir_crit_bonus
 		
 	if stat == "damage":
 		if current_class == "berserker" and player:
 			total += player.berserker_dmg_buff
 		total += stolen_dark_dmg
+		if is_blood_sacrifice:
+			total += 2.0
 			
 	if stat == "maxhp":
 		total += stolen_dark_hp
@@ -640,25 +671,92 @@ func grant_random_upgrades(count: int) -> Array:
 	var granted: Array = []
 	for i in range(count):
 		var pool = []
+		
+		# 1. Existing Active Skills
 		for s in active_skills:
 			if s.level < s.data.max_level:
-				pool.append({"type": "upgrade_active", "skill": s, "name": s.data.display_name})
+				pool.append({"type": "upgrade_active", "skill": s, "name": s.data.display_name, "weight": 4})
+				
+		# 2. Existing Passives
 		for id in passive_levels.keys():
 			var data = _find_passive(id)
 			if data and passive_levels[id] < data.max_level:
-				pool.append({"type": "upgrade_passive", "id": id, "name": data.display_name})
-		if pool.size() > 0:
-			var picked = pool[randi() % pool.size()]
-			if picked.type == "upgrade_active":
+				pool.append({"type": "upgrade_passive", "id": id, "name": data.display_name, "weight": 4})
+				
+		# 3. Unowned Cursed Relics
+		var all_relics = ["death_scythe_shard", "blood_pact_blade", "chronos_hourglass", "vampiric_chalice", "greed_ring", "titan_aegis", "void_prism", "ancient_censer", "shadow_boots", "heart_of_the_abyss"]
+		for r in all_relics:
+			if not active_relics.has(r):
+				pool.append({"type": "grant_relic", "relic_id": r, "weight": 3})
+				
+		# 4. Stat Elixirs (Always available so pool is never exhausted)
+		pool.append({"type": "elixir_might", "name": "Elixir of War (+15% Might)", "weight": 2})
+		pool.append({"type": "elixir_armor", "name": "Elixir of Iron (+10% Armor)", "weight": 2})
+		pool.append({"type": "elixir_cdr", "name": "Elixir of Chronos (-8% Cooldown)", "weight": 2})
+		pool.append({"type": "elixir_speed", "name": "Elixir of the Wind (+12% Speed)", "weight": 2})
+		pool.append({"type": "elixir_crit", "name": "Elixir of Fortune (+15% Crit)", "weight": 2})
+		pool.append({"type": "elixir_hp", "name": "Elixir of the Titan (+50 Max HP)", "weight": 2})
+		pool.append({"type": "elixir_xp", "name": "Essence of the Void (+150 Bonus XP)", "weight": 2})
+		
+		# Weighted pick
+		var total_w = 0
+		for item in pool: total_w += item.weight
+		var roll = randi_range(1, total_w)
+		var picked = pool[0]
+		var cur_w = 0
+		for item in pool:
+			cur_w += item.weight
+			if roll <= cur_w:
+				picked = item
+				break
+				
+		match picked.type:
+			"upgrade_active":
 				picked.skill.level += 1
 				granted.append(picked.name + " Lv" + str(picked.skill.level))
-			else:
+			"upgrade_passive":
 				passive_levels[picked.id] += 1
 				granted.append(picked.name + " Lv" + str(passive_levels[picked.id]))
-		else:
-			if player:
-				player.heal(30.0)
-			granted.append("Vitality Surge (+30 HP)")
+			"grant_relic":
+				active_relics.append(picked.relic_id)
+				var relic_names = {
+					"death_scythe_shard": "Soul Reaper Scythe",
+					"blood_pact_blade": "Blood Pact Dagger",
+					"chronos_hourglass": "Chronos Doomglass",
+					"vampiric_chalice": "Vampiric Chalice",
+					"greed_ring": "Ring of Midas",
+					"titan_aegis": "Titan Sarcophagus",
+					"void_prism": "Void Singularity Prism",
+					"ancient_censer": "Censer of the Plague",
+					"shadow_boots": "Phantom Shadow Boots",
+					"heart_of_the_abyss": "Abyssal Heart"
+				}
+				granted.append("CURSED RELIC: " + relic_names.get(picked.relic_id, "Relic").to_upper())
+			"elixir_might":
+				stolen_dark_dmg += 0.15
+				granted.append("ELIXIR OF WAR (+15% MIGHT)")
+			"elixir_armor":
+				elixir_armor_bonus += 0.10
+				granted.append("ELIXIR OF IRON (+10% ARMOR)")
+			"elixir_cdr":
+				elixir_cdr_bonus += 0.08
+				granted.append("ELIXIR OF CHRONOS (-8% CDR)")
+			"elixir_speed":
+				elixir_speed_bonus += 0.12
+				granted.append("ELIXIR OF SPEED (+12% SPEED)")
+			"elixir_crit":
+				elixir_crit_bonus += 0.15
+				granted.append("ELIXIR OF FORTUNE (+15% CRIT)")
+			"elixir_hp":
+				stolen_dark_hp += 50.0
+				if player: player._update_max_hp(); player.heal(50.0)
+				granted.append("ELIXIR OF TITAN (+50 MAX HP)")
+			"elixir_xp":
+				grant_xp(150)
+				granted.append("ESSENCE OF VOID (+150 BONUS XP)")
+				
+	if player:
+		player._update_max_hp()
 	return granted
 
 
