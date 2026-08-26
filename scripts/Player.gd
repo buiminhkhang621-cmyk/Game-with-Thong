@@ -47,6 +47,9 @@ func _ready() -> void:
 	col.shape = shape
 	add_child(col)
 
+	var rune_aura = RunePossessionAura.new()
+	add_child(rune_aura)
+
 	collision_layer = 2
 	collision_mask = 1
 
@@ -57,6 +60,7 @@ func _ready() -> void:
 var _berserker_time: float = 0.0
 var berserker_dmg_buff: float = 0.0
 
+var _jump_cooldown: float = 0.0
 var _landing_i_frames: float = 0.0
 var _hurt_timer: float = 0.0
 var _ice_aura_timer: float = 0.0
@@ -64,14 +68,17 @@ var _ice_aura_timer: float = 0.0
 func _physics_process(delta: float) -> void:
 	_update_max_hp()
 	
+	if _jump_cooldown > 0.0:
+		_jump_cooldown -= delta
+	
 	if _landing_i_frames > 0.0:
 		_landing_i_frames -= delta
 	
 	if GameManager.current_class == "berserker":
 		_berserker_time += delta
-		if _berserker_time >= 2.0:
+		if _berserker_time >= 1.5:
 			_berserker_time = 0.0
-			berserker_dmg_buff = min(0.3, berserker_dmg_buff + 0.01)
+			berserker_dmg_buff = min(0.25, berserker_dmg_buff + 0.01)
 	
 	if z_height > 0.0 or z_velocity != 0.0:
 		z_velocity -= GRAVITY * delta
@@ -164,8 +171,9 @@ func _physics_process(delta: float) -> void:
 	velocity = dir * speed_mult
 	move_and_slide()
 
-	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0:
+	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0 and _jump_cooldown <= 0.0:
 		z_velocity = JUMP_FORCE
+		_jump_cooldown = 0.5
 		
 	if _hurt_timer > 0.0:
 		_hurt_timer -= delta
@@ -205,11 +213,16 @@ func _update_sprite_visuals() -> void:
 
 
 func _update_max_hp() -> void:
-	var new_max := base_max_hp + GameManager.passive_value("maxhp")
-	if new_max != _effective_max_hp:
-		hp += (new_max - _effective_max_hp)
+	var flat_bonus = GameManager.relic_value("flat_hp") + GameManager.stolen_dark_hp
+	var hp_mult = 1.0 + GameManager.passive_value("vitality") + GameManager.relic_value("hp_mult")
+	var new_max = max(10.0, (base_max_hp + flat_bonus) * hp_mult)
+	if abs(new_max - _effective_max_hp) > 0.5:
+		var diff = new_max - _effective_max_hp
 		_effective_max_hp = new_max
-		hp = min(hp, _effective_max_hp)
+		if diff > 0:
+			hp = min(_effective_max_hp, hp + diff)
+		else:
+			hp = min(_effective_max_hp, hp)
 		GameManager.hp_changed.emit(hp, _effective_max_hp)
 
 func _apply_landing_knockback() -> void:
@@ -223,7 +236,6 @@ func _apply_landing_knockback() -> void:
 				if dir.length() < 0.1:
 					dir = Vector2(randf_range(-1, 1), randf_range(-1, 1)).normalized()
 				e.apply_knockback(dir, 200.0)
-				# Also deal a small amount of damage on landing?
 				if e.has_method("take_damage"):
 					e.take_damage(5.0)
 
@@ -251,9 +263,12 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	if GameManager.active_curses.has("mong_manh"):
 		dmg *= 1.25
 		
+	if GameManager.active_relics.has("death_scythe_shard"):
+		dmg *= 1.15
+		
 	if GameManager.current_class == "berserker":
 		_berserker_time = 0.0
-		berserker_dmg_buff = 0.0
+		berserker_dmg_buff = max(0.0, berserker_dmg_buff * 0.65)
 		
 	hp -= dmg
 	_shake_intensity = 15.0

@@ -8,19 +8,37 @@ var setting_sfx_vol: float = 1.0
 var setting_screen_shake: bool = true
 
 const SETTINGS_FILE = "user://settings.cfg"
+@warning_ignore("unused_signal")
 signal hp_changed(current: float, max_hp: float)
+@warning_ignore("unused_signal")
 signal xp_changed(current: int, needed: int)
+@warning_ignore("unused_signal")
 signal level_changed(new_level: int)
+@warning_ignore("unused_signal")
 signal kill_count_changed(count: int)
+@warning_ignore("unused_signal")
 signal run_time_changed(seconds: float)
+@warning_ignore("unused_signal")
 signal leveled_up_choices(choices: Array)
+@warning_ignore("unused_signal")
 signal player_died
+@warning_ignore("unused_signal")
 signal score_changed(new_score: int)
+@warning_ignore("unused_signal")
 signal quest_completed(quest_id: String, title: String)
 
+@warning_ignore("unused_signal")
 signal combo_updated(total_damage: float, hits: int)
+@warning_ignore("unused_signal")
 signal combo_reset()
+@warning_ignore("unused_signal")
 signal boss_spawned()
+@warning_ignore("unused_signal")
+signal wave_event_triggered(title: String, subtitle: String)
+@warning_ignore("unused_signal")
+signal blood_moon_state_changed(active: bool)
+@warning_ignore("unused_signal")
+signal chest_opened(rewards: Array)
 
 var bgm_player_1: AudioStreamPlayer
 var bgm_player_2: AudioStreamPlayer
@@ -31,8 +49,15 @@ var bgm_playlist: Array = []
 
 var active_enemies: Array = []
 
-const MAX_ACTIVE_SLOTS := 3
-const MAX_PASSIVE_SLOTS := 3
+const MAX_ACTIVE_SLOTS := 4
+const MAX_PASSIVE_SLOTS := 4
+
+func register_enemy(e: Node) -> void:
+	if not active_enemies.has(e):
+		active_enemies.append(e)
+
+func unregister_enemy(e: Node) -> void:
+	active_enemies.erase(e)
 
 const SAVE_FILE = "user://savegame.cfg"
 
@@ -59,6 +84,11 @@ var pending_level_ups: int = 0
 
 var active_skills: Array = []
 var passive_levels: Dictionary = {}
+
+var rerolls_left: int = 2
+var banishes_left: int = 1
+var banished_ids: Array = []
+var is_blood_moon: bool = false
 
 var active_curses: Array = []
 var active_relics: Array = []
@@ -90,7 +120,9 @@ var available_passive_skills: Array = [
 var combo_damage: float = 0.0
 var combo_hits: int = 0
 var combo_timer: float = 0.0
-const COMBO_TIMEOUT: float = 2.0
+var combo_duration: float = 0.0
+const COMBO_TIMEOUT: float = 0.9
+const MAX_COMBO_DURATION: float = 3.5
 
 func add_combo_damage(amount: float) -> void:
 	combo_damage += amount
@@ -104,7 +136,6 @@ func _process(delta: float) -> void:
 		return
 		
 	run_time += delta
-	active_enemies = get_tree().get_nodes_in_group("enemies")
 	run_time_changed.emit(run_time)
 	
 	_check_quest("time", run_time)
@@ -113,9 +144,12 @@ func _process(delta: float) -> void:
 		
 	if combo_timer > 0:
 		combo_timer -= delta
-		if combo_timer <= 0:
+		combo_duration += delta
+		if combo_timer <= 0 or combo_duration >= MAX_COMBO_DURATION:
 			combo_damage = 0.0
 			combo_hits = 0
+			combo_timer = 0.0
+			combo_duration = 0.0
 			combo_reset.emit()
 			
 	if Engine.time_scale < 1.0:
@@ -218,6 +252,11 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	passive_levels.clear()
 	stolen_dark_hp = 0.0
 	stolen_dark_dmg = 0.0
+	rerolls_left = 2
+	banishes_left = 1
+	banished_ids.clear()
+	is_blood_moon = false
+	active_relics.clear()
 	
 	if player:
 		player.hp = player.base_max_hp
@@ -249,11 +288,14 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 func grant_xp(amount: int) -> void:
 	if game_over:
 		return
-	xp += amount
+	var final_xp = amount
+	if active_relics.has("greed_ring"):
+		final_xp = int(final_xp * 2.0)
+	xp += final_xp
 	while xp >= xp_to_next:
 		xp -= xp_to_next
 		level += 1
-		xp_to_next = 8 + level * 5
+		xp_to_next = int(12 + level * 8 + pow(level, 1.45) * 3)
 		level_changed.emit(level)
 		pending_level_ups += 1
 
@@ -270,6 +312,11 @@ func register_kill() -> void:
 	kill_count_changed.emit(kills)
 	add_score(10)
 	_check_quest("total_kills", total_kills)
+	
+	# Vampiric Chalice Relic: Heal +2 HP every 10 kills
+	if active_relics.has("vampiric_chalice") and kills % 10 == 0:
+		if player:
+			player.heal(2.0)
 
 
 func add_score(amount: int) -> void:
@@ -285,6 +332,38 @@ func on_player_died() -> void:
 	player_died.emit()
 
 
+func relic_value(stat: String) -> float:
+	var val: float = 0.0
+	for r in active_relics:
+		match r:
+			"heart_of_the_abyss":
+				if stat == "flat_hp": val += 100.0
+				elif stat == "movespeed": val -= 0.25
+			"blood_pact_blade":
+				if stat == "damage": val += 0.50
+				elif stat == "hp_mult": val -= 0.35
+			"chronos_hourglass":
+				if stat == "cooldown": val += 0.25
+				elif stat == "pickup": val -= 0.15
+			"vampiric_chalice":
+				if stat == "damage": val -= 0.10
+			"greed_ring":
+				if stat == "flat_hp": val -= 15.0
+			"titan_aegis":
+				if stat == "armor": val += 0.35
+				elif stat == "cooldown": val -= 0.10
+			"death_scythe_shard":
+				if stat == "crit": val += 0.30
+			"shadow_boots":
+				if stat == "movespeed": val += 0.35
+			"ancient_censer":
+				if stat == "flat_hp": val += 25.0
+				elif stat == "pickup": val += 0.15
+			"void_prism":
+				pass
+	return val
+
+
 func passive_value(stat: String) -> float:
 	var total := 0.0
 	var total_levels := 0
@@ -294,6 +373,8 @@ func passive_value(stat: String) -> float:
 			total += data.value_per_level * passive_levels[id]
 		total_levels += passive_levels[id]
 			
+	total += relic_value(stat)
+	
 	if stat == "cooldown":
 		if current_class == "assassin":
 			total += 0.20
@@ -301,6 +382,7 @@ func passive_value(stat: String) -> float:
 			total += 0.03 # Tier 1
 		if has_rune_resonance("lightning"):
 			total += 0.20
+		return min(0.65, total)
 			
 	if stat == "movespeed":
 		if has_rune_resonance("lightning"):
@@ -399,6 +481,7 @@ func _build_level_up_choices() -> Array:
 	var pool: Array = []
 
 	for s in active_skills:
+		if banished_ids.has(s.data.id): continue
 		if s.level < s.data.max_level:
 			pool.append({
 				"weight": 3, "type": "upgrade_active", "skill_id": s.data.id,
@@ -418,7 +501,7 @@ func _build_level_up_choices() -> Array:
 
 	if active_skills.size() < MAX_ACTIVE_SLOTS:
 		for data in available_active_skills:
-			if not _has_active(data.id):
+			if not banished_ids.has(data.id) and not _has_active(data.id):
 				pool.append({
 					"weight": 2, "type": "new_active", "skill_id": data.id,
 					"tag": "New Skill", "title": data.display_name,
@@ -429,7 +512,7 @@ func _build_level_up_choices() -> Array:
 		var extra_skills = ["res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
 		for path in extra_skills:
 			var data = load(path)
-			if data and not _has_active(data.id) and not available_active_skills.has(data):
+			if data and not banished_ids.has(data.id) and not _has_active(data.id) and not available_active_skills.has(data):
 				pool.append({
 					"weight": 2, "type": "new_active", "skill_id": data.id,
 					"tag": "New Skill", "title": data.display_name,
@@ -437,6 +520,7 @@ func _build_level_up_choices() -> Array:
 				})
 
 	for id in passive_levels.keys():
+		if banished_ids.has(id): continue
 		var lvl: int = passive_levels[id]
 		var data := _find_passive(id)
 		if data and lvl < data.max_level:
@@ -449,7 +533,7 @@ func _build_level_up_choices() -> Array:
 
 	if passive_levels.size() < MAX_PASSIVE_SLOTS:
 		for data in available_passive_skills:
-			if not passive_levels.has(data.id):
+			if not banished_ids.has(data.id) and not passive_levels.has(data.id):
 				pool.append({
 					"weight": 2, "type": "new_passive", "passive_id": data.id,
 					"tag": "New Passive", "title": data.display_name,
@@ -466,7 +550,7 @@ func _build_level_up_choices() -> Array:
 		# If missing Vong
 		if collected_vong.size() <= crafted_spells.size():
 			for v in available_vong:
-				if not collected_vong.has(v):
+				if not banished_ids.has(v) and not collected_vong.has(v):
 					pool.append({
 						"weight": 2, "type": "new_vong", "vong_id": v,
 						"tag": "Seal", "title": v,
@@ -476,7 +560,7 @@ func _build_level_up_choices() -> Array:
 		# If missing Net
 		if collected_net.size() <= crafted_spells.size():
 			for n in available_net:
-				if not collected_net.has(n):
+				if not banished_ids.has(n) and not collected_net.has(n):
 					pool.append({
 						"weight": 2, "type": "new_net", "net_id": n,
 						"tag": "Crest", "title": n,
@@ -490,6 +574,92 @@ func _build_level_up_choices() -> Array:
 	})
 
 	return _weighted_pick_unique(pool, 3)
+
+func reroll_choices() -> void:
+	if rerolls_left <= 0:
+		return
+	rerolls_left -= 1
+	leveled_up_choices.emit(_build_level_up_choices())
+
+func banish_choice(choice: Dictionary) -> void:
+	if banishes_left <= 0:
+		return
+	banishes_left -= 1
+	var target_id = ""
+	if choice.has("skill_id"):
+		target_id = choice.skill_id
+	elif choice.has("passive_id"):
+		target_id = choice.passive_id
+	elif choice.has("vong_id"):
+		target_id = choice.vong_id
+	elif choice.has("net_id"):
+		target_id = choice.net_id
+		
+	if target_id != "" and not banished_ids.has(target_id):
+		banished_ids.append(target_id)
+		
+	leveled_up_choices.emit(_build_level_up_choices())
+
+func skip_level_up() -> void:
+	if player:
+		player.heal(25.0)
+	if pending_level_ups > 0:
+		_trigger_level_up()
+	else:
+		paused_for_levelup = false
+		get_tree().paused = false
+
+func trigger_void_magnet() -> void:
+	var orbs = get_tree().get_nodes_in_group("xp_orbs")
+	for o in orbs:
+		if is_instance_valid(o) and not o.is_queued_for_deletion():
+			o.is_attracted = true
+
+func trigger_cataclysm_nuke() -> void:
+	hit_stop(0.08)
+	if player:
+		player._shake_intensity = 25.0
+	for e in active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
+		if e.get("enemy_type") == "boss":
+			if e.has_method("take_damage"):
+				e.take_damage(350.0)
+		else:
+			if e.has_method("_die"):
+				e._die()
+
+func trigger_time_stasis(duration: float = 4.5) -> void:
+	for e in active_enemies:
+		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
+		if e.has_method("apply_element"):
+			e.is_frozen = true
+			e.ice_slow_time = max(e.ice_slow_time, duration)
+			e.queue_redraw()
+
+func grant_random_upgrades(count: int) -> Array:
+	var granted: Array = []
+	for i in range(count):
+		var pool = []
+		for s in active_skills:
+			if s.level < s.data.max_level:
+				pool.append({"type": "upgrade_active", "skill": s, "name": s.data.display_name})
+		for id in passive_levels.keys():
+			var data = _find_passive(id)
+			if data and passive_levels[id] < data.max_level:
+				pool.append({"type": "upgrade_passive", "id": id, "name": data.display_name})
+		if pool.size() > 0:
+			var picked = pool[randi() % pool.size()]
+			if picked.type == "upgrade_active":
+				picked.skill.level += 1
+				granted.append(picked.name + " Lv" + str(picked.skill.level))
+			else:
+				passive_levels[picked.id] += 1
+				granted.append(picked.name + " Lv" + str(passive_levels[picked.id]))
+		else:
+			if player:
+				player.heal(30.0)
+			granted.append("Vitality Surge (+30 HP)")
+	return granted
 
 
 func apply_choice(choice: Dictionary) -> void:

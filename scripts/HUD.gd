@@ -25,10 +25,44 @@ func _ready() -> void:
 	GameManager.combo_updated.connect(_on_combo_updated)
 	GameManager.combo_reset.connect(_on_combo_reset)
 	GameManager.boss_spawned.connect(_on_boss_spawned)
+	GameManager.wave_event_triggered.connect(_on_wave_event_triggered)
+	GameManager.blood_moon_state_changed.connect(_on_blood_moon_changed)
 	
+	_setup_blood_moon_vignette()
+	
+	var rune_radar = RuneRadar.new()
+	add_child(rune_radar)
+	
+	var arsenal_hud = ArsenalHUD.new()
+	add_child(arsenal_hud)
+	
+	if xp_bar:
+		xp_bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+		xp_bar.offset_left = 0
+		xp_bar.offset_top = 0
+		xp_bar.offset_right = 0
+		xp_bar.offset_bottom = 8
+	
+	runes_display = Control.new()
+	runes_display.position = Vector2(10, 92)
+	runes_display.custom_minimum_size = Vector2(250, 42)
+	runes_display.draw.connect(func():
+		var time = Time.get_ticks_msec() / 1000.0
+		var pulse = 0.85 + sin(time * 3.0) * 0.15
+		var unlocked = GameManager.unlocked_runes
+		for i in range(unlocked.size()):
+			var r_id = unlocked[i]
+			var center = Vector2(22 + i * 46, 20)
+			# Background runic medallion plate
+			runes_display.draw_circle(center, 18.0, Color(0.1, 0.12, 0.15, 0.8))
+			runes_display.draw_arc(center, 18.0, 0, TAU, 24, Color(0.3, 0.35, 0.45, 0.6), 1.5)
+			UpgradeIcons.draw_mythic_rune_glyph(runes_display, r_id, center, 12.0, Color.WHITE, pulse)
+	)
+	add_child(runes_display)
+
 	spell_info_label = Label.new()
-	spell_info_label.position = Vector2(10, 100)
-	spell_info_label.add_theme_font_size_override("font_size", 14)
+	spell_info_label.position = Vector2(10, 140)
+	spell_info_label.add_theme_font_size_override("font_size", 13)
 	add_child(spell_info_label)
 	
 	fps_label = Label.new()
@@ -66,9 +100,13 @@ func _ready() -> void:
 	
 	_refresh()
 
+var runes_display: Control = null
+
 func _process(_delta: float) -> void:
 	if fps_label:
 		fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
+	if runes_display:
+		runes_display.queue_redraw()
 
 
 func _on_hp_changed(cur: float, max_hp: float) -> void:
@@ -127,22 +165,80 @@ func _on_combo_reset() -> void:
 			combo_label.modulate.a = 1.0
 		)
 
+var blood_moon_rect: ColorRect = null
+var active_banner_node: Node = null
+
+func _setup_blood_moon_vignette() -> void:
+	blood_moon_rect = ColorRect.new()
+	blood_moon_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	blood_moon_rect.color = Color(0.85, 0.05, 0.05, 0.0)
+	blood_moon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(blood_moon_rect)
+
+func _on_blood_moon_changed(active: bool) -> void:
+	if not blood_moon_rect: return
+	var tween = get_tree().create_tween()
+	if active:
+		tween.tween_property(blood_moon_rect, "color:a", 0.18, 1.5)
+	else:
+		tween.tween_property(blood_moon_rect, "color:a", 0.0, 1.5)
+
+func _on_wave_event_triggered(title_text: String, subtitle_text: String) -> void:
+	if is_instance_valid(active_banner_node):
+		active_banner_node.queue_free()
+		
+	var banner = PanelContainer.new()
+	active_banner_node = banner
+	var v_width = get_viewport().get_visible_rect().size.x
+	var banner_w = min(600.0, v_width - 40.0)
+	banner.position = Vector2((v_width - banner_w) * 0.5, -100)
+	banner.size = Vector2(banner_w, 70)
+	
+	var sb = StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.08, 0.1, 0.95)
+	sb.border_width_left = 3
+	sb.border_width_right = 3
+	sb.border_width_top = 2
+	sb.border_width_bottom = 3
+	sb.border_color = Color(0.9, 0.25, 0.25)
+	sb.corner_radius_top_left = 4
+	sb.corner_radius_top_right = 4
+	sb.corner_radius_bottom_right = 4
+	sb.corner_radius_bottom_left = 4
+	sb.content_margin_left = 20
+	sb.content_margin_right = 20
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	banner.add_theme_stylebox_override("panel", sb)
+	add_child(banner)
+	
+	var vbox = VBoxContainer.new()
+	banner.add_child(vbox)
+	
+	var t_lbl = Label.new()
+	t_lbl.text = title_text
+	t_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t_lbl.add_theme_font_size_override("font_size", 18)
+	t_lbl.add_theme_color_override("font_color", Color(1.0, 0.35, 0.35))
+	t_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
+	t_lbl.add_theme_constant_override("outline_size", 4)
+	vbox.add_child(t_lbl)
+	
+	var s_lbl = Label.new()
+	s_lbl.text = subtitle_text
+	s_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	s_lbl.add_theme_font_size_override("font_size", 12)
+	s_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
+	vbox.add_child(s_lbl)
+	
+	var tween = get_tree().create_tween()
+	tween.tween_property(banner, "position:y", 25.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tween.tween_interval(3.2)
+	tween.tween_property(banner, "position:y", -110.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_callback(banner.queue_free)
+
 func _on_boss_spawned() -> void:
-	var boss_lbl = Label.new()
-	boss_lbl.text = "WARNING: BOSS APPROACHING!"
-	boss_lbl.add_theme_font_size_override("font_size", 48)
-	boss_lbl.add_theme_color_override("font_color", Color.RED)
-	boss_lbl.add_theme_color_override("font_outline_color", Color.BLACK)
-	boss_lbl.add_theme_constant_override("outline_size", 8)
-	add_child(boss_lbl)
-	boss_lbl.set_anchors_preset(Control.PRESET_CENTER)
-	
-	var tween = get_tree().create_tween().set_loops(6)
-	tween.tween_property(boss_lbl, "modulate:a", 0.1, 0.2)
-	tween.tween_property(boss_lbl, "modulate:a", 1.0, 0.2)
-	
-	await get_tree().create_timer(3.0).timeout
-	boss_lbl.queue_free()
+	pass
 
 
 func _refresh() -> void:

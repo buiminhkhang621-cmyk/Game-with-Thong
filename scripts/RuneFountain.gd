@@ -1,15 +1,17 @@
 class_name RuneFountain
 extends Area2D
 
-var rune_type: String = "lightning"
+var rune_type: String = ""
 var used: bool = false
 var radius: float = 30.0
 
 var label: Label = null
 
 func _ready() -> void:
-	var types = ["lightning", "ice", "dark", "void"]
-	rune_type = types[randi() % types.size()]
+	add_to_group("rune_fountains")
+	if rune_type == "":
+		var types = ["lightning", "ice", "dark", "void"]
+		rune_type = types[randi() % types.size()]
 	
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
@@ -24,8 +26,10 @@ func _ready() -> void:
 	
 	label = Label.new()
 	label.text = rune_type.capitalize()
-	label.position = Vector2(-20, -45)
-	label.add_theme_font_size_override("font_size", 12)
+	label.position = Vector2(-25, -48)
+	label.add_theme_font_size_override("font_size", 13)
+	label.add_theme_color_override("font_outline_color", Color.BLACK)
+	label.add_theme_constant_override("outline_size", 4)
 	add_child(label)
 
 func _on_body_entered(body: Node2D) -> void:
@@ -35,9 +39,11 @@ func _on_body_entered(body: Node2D) -> void:
 	if not GameManager.unlocked_runes.has(rune_type):
 		GameManager.unlocked_runes.append(rune_type)
 		print("Unlocked rune element: ", rune_type)
-		used = true
-		queue_redraw()
-		label.text = "Empty"
+	used = true
+	queue_redraw()
+	if label:
+		label.text = "Unlocked"
+		label.add_theme_color_override("font_color", Color(0.6, 0.6, 0.6))
 
 func _draw() -> void:
 	if used:

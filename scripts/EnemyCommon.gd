@@ -1,9 +1,9 @@
 class_name EnemyCommon
 extends CharacterBody2D
 
-@export var max_hp: float = 14.0
-@export var speed: float = 65.0
-@export var contact_dps: float = 10.0
+@export var max_hp: float = 16.0
+@export var speed: float = 75.0
+@export var contact_dps: float = 18.0
 @export var xp_value: int = 1
 @export var hit_radius: float = 10.0
 @export var color: Color = Color.WHITE
@@ -16,12 +16,9 @@ var _original_color: Color
 var _burn_time: float = 0.0
 var _burn_dps: float = 0.0
 
-var _void_target_timer: float = 0.0
-var _void_target: Node = null
-
+var _void_proc_cooldown: float = 0.0
 var ice_slow_time: float = 0.0
 var is_frozen: bool = false
-var void_mark_time: float = 0.0
 
 var active_auras: Array = []
 var reaction_cooldown: float = 0.0
@@ -33,6 +30,8 @@ var knockback_vel: Vector2 = Vector2.ZERO
 var knockback_time: float = 0.0
 
 var enemy_type: String = "normal"
+var armor: float = 0.0
+var evolution_tier: int = 0
 var sniper_cooldown: float = 0.0
 var bomber_fuse: float = -1.0
 var teleport_cooldown: float = 0.0
@@ -59,51 +58,67 @@ func setup_type(type: String) -> void:
 	enemy_type = type
 	match type:
 		"boss":
-			speed *= 0.6
-			max_hp *= 10.0 # Will be multiplied again by 50 in Spawner
+			speed *= 0.75
+			max_hp *= 12.0
 			hit_radius *= 3.0
-			contact_dps *= 2.0
+			contact_dps *= 2.5
+			armor = 0.50
 			boss_phase = 1
 			boss_state = "idle"
-			boss_attack_cooldown = 4.0
+			boss_attack_cooldown = 3.5
 		"swarm":
-			speed *= 1.5
-			max_hp *= 0.3
+			speed *= 1.65
+			max_hp *= 0.4
 			hit_radius *= 0.6
+			contact_dps *= 1.0
+			armor = 0.0
 		"tank_blue":
-			speed *= 0.5
-			max_hp *= 400.0
+			speed *= 0.55
+			max_hp *= 42.0
 			hit_radius *= 2.0
-			contact_dps *= 0.5
+			contact_dps *= 1.3
+			armor = 0.60
 		"tank_yellow":
-			speed *= 0.6
-			max_hp *= 200.0
+			speed *= 0.65
+			max_hp *= 24.0
 			hit_radius *= 1.5
-			contact_dps *= 0.5
+			contact_dps *= 1.3
+			armor = 0.48
 		"tank":
-			speed *= 0.5
-			max_hp *= 10.0
+			speed *= 0.55
+			max_hp *= 15.0
 			hit_radius *= 2.0
-			contact_dps *= 0.5
+			contact_dps *= 1.2
+			armor = 0.40
 		"sniper":
-			max_hp *= 0.5
-			contact_dps *= 2.0
-			sniper_cooldown = randf_range(1.0, 2.0)
+			speed *= 0.95
+			max_hp *= 0.8
+			contact_dps *= 1.5
+			armor = 0.15
+			sniper_cooldown = randf_range(0.8, 1.4)
 		"bomber":
-			pass
+			speed *= 1.35
+			max_hp *= 1.3
+			contact_dps *= 1.0
+			armor = 0.0
 		"teleporter":
-			speed *= 1.2
-			teleport_cooldown = randf_range(2.0, 4.0)
+			speed *= 1.35
+			contact_dps *= 1.5
+			armor = 0.15
+			teleport_cooldown = randf_range(1.6, 2.8)
 		"summoner":
-			speed *= 0.8
-			max_hp *= 1.5
-			summon_cooldown = randf_range(10.0, 15.0)
-			mega_summon_timer = 100.0
+			speed *= 1.1
+			max_hp *= 3.2
+			contact_dps *= 1.2
+			armor = 0.20
+			summon_cooldown = randf_range(4.0, 7.0)
+			mega_summon_timer = 35.0
+		_:
+			armor = 0.10
 			
 	hp = max_hp
 	_original_color = color
 	
-	# Apply sprite tint, frames and scale based on enemy type
 	if sprite:
 		match type:
 			"boss":
@@ -138,11 +153,46 @@ func setup_type(type: String) -> void:
 				
 		if sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
 			sprite.play("idle")
+
+func setup_evolution(time_sec: float, tier_mult: float = 1.0) -> void:
+	if time_sec < 120.0:
+		evolution_tier = 0
+		max_hp *= 1.0 * tier_mult
+		_original_color = Color.WHITE
+	elif time_sec < 300.0:
+		evolution_tier = 1
+		max_hp *= 1.35 * tier_mult
+		contact_dps *= 1.25
+		armor = min(0.75, armor + 0.08)
+		speed *= 1.08
+		_original_color = Color(1.0, 0.78, 0.78)
+	elif time_sec < 480.0:
+		evolution_tier = 2
+		max_hp *= 2.1 * tier_mult
+		contact_dps *= 1.6
+		armor = min(0.75, armor + 0.15)
+		speed *= 1.16
+		scale *= 1.12
+		_original_color = Color(0.85, 0.65, 1.0)
+	else:
+		evolution_tier = 3
+		max_hp *= 3.3 * tier_mult
+		contact_dps *= 2.0
+		armor = min(0.75, armor + 0.22)
+		speed *= 1.22
+		scale *= 1.20
+		_original_color = Color(1.0, 0.85, 0.45)
+		
+	hp = max_hp
+	color = _original_color
+	if sprite:
+		sprite.modulate = color
 	
 func _ready() -> void:
 	hp = max_hp
 	_original_color = color
 	add_to_group("enemies")
+	GameManager.register_enemy(self)
 	
 	if sprite:
 		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -156,6 +206,9 @@ func _ready() -> void:
 	collision_mask = 5 # 1 (Obstacles) + 4 (Enemies)
 
 	queue_redraw()
+
+func _exit_tree() -> void:
+	GameManager.unregister_enemy(self)
 
 
 func _physics_process(delta: float) -> void:
@@ -180,32 +233,13 @@ func _physics_process(delta: float) -> void:
 			active_auras.erase("ice")
 			queue_redraw()
 	
-	var target_pos: Vector2 = player.global_position
-	if void_mark_time > 0:
-		void_mark_time -= delta
-		_void_target_timer -= delta
-		if _void_target_timer <= 0.0:
-			_void_target_timer = 0.25
-			_void_target = _get_nearest_enemy_except(self)
-			if _void_target:
-				target_pos = _void_target.global_position
-			else:
-				_void_target = null
-			
-		if void_mark_time <= 0:
-			_trigger_void_spread()
-			if randf() < 0.20:
-				_die()
-				return
-			else:
-				var base_dmg = max_hp * 0.2
-				if GameManager.current_class == "void_mage": base_dmg *= 1.2
-				take_damage(base_dmg)
-				if is_dying: return
+	if _void_proc_cooldown > 0:
+		_void_proc_cooldown -= delta
 			
 	if reaction_cooldown > 0:
 		reaction_cooldown -= delta
 
+	var target_pos: Vector2 = player.global_position
 	var to_player: Vector2 = target_pos - global_position
 	var dist: float = to_player.length()
 	
@@ -379,27 +413,27 @@ func _physics_process(delta: float) -> void:
 				boss_state = "idle"
 	
 	if enemy_type == "sniper":
-		if dist < 150.0:
+		if dist < 320.0:
 			should_move = false
 		sniper_cooldown -= delta
 		if sniper_cooldown <= 0:
-			sniper_cooldown = 2.0
+			sniper_cooldown = randf_range(1.2, 1.8)
 			_fire_sniper_projectile(to_player.normalized())
 			
 	if enemy_type == "bomber":
-		if bomber_fuse < 0 and dist < 40.0:
-			bomber_fuse = 1.0
+		if bomber_fuse < 0 and dist < 85.0:
+			bomber_fuse = 0.22 # Fast near-instant fuse!
 			
 		if bomber_fuse >= 0:
 			should_move = false
 			bomber_fuse -= delta
 			
-			# Blink red via sprite modulate instead of color var
+			# Fast blink red via sprite modulate
 			if sprite:
-				if int(bomber_fuse * 10) % 2 == 0:
+				if int(bomber_fuse * 20) % 2 == 0:
 					sprite.modulate = Color.RED
 				else:
-					sprite.modulate = _original_color
+					sprite.modulate = Color(1.0, 0.6, 0.6)
 			queue_redraw()
 			
 			if bomber_fuse < 0:
@@ -408,22 +442,26 @@ func _physics_process(delta: float) -> void:
 				
 	if enemy_type == "teleporter":
 		teleport_cooldown -= delta
-		if teleport_cooldown <= 0 and dist > 120.0:
-			teleport_cooldown = randf_range(2.0, 4.0)
+		if teleport_cooldown <= 0 and dist > 90.0:
+			teleport_cooldown = randf_range(1.6, 2.8)
 			var angle = randf() * TAU
-			global_position = player.global_position + Vector2(cos(angle), sin(angle)) * 50.0
-			# Show a particle or something? Just keep it simple.
+			global_position = player.global_position + Vector2(cos(angle), sin(angle)) * 35.0
+			_attack_timer = 0.3
 			
 	if enemy_type == "summoner":
-		if dist < 120.0:
+		if dist < 260.0:
 			should_move = true
-			to_player = - to_player # run away
+			to_player = - to_player # Run away to maintain distance!
+		elif dist > 450.0:
+			should_move = true
+		else:
+			should_move = false
 		
 		summon_cooldown -= delta
 		mega_summon_timer -= delta
 		
 		if summon_cooldown <= 0:
-			summon_cooldown = randf_range(10.0, 15.0)
+			summon_cooldown = randf_range(5.0, 8.0)
 			_attack_timer = 0.5
 			
 			var mc = Sprite2D.new()
@@ -432,12 +470,12 @@ func _physics_process(delta: float) -> void:
 			mc.global_position = global_position
 			mc.setup("small")
 			
-			var batch = randi_range(10, 25) # Reduced batch size
+			var batch = randi_range(12, 20)
 			for i in range(batch):
-				_spawn_swarm_near(50.0)
+				_spawn_swarm_near(80.0)
 				
 		if mega_summon_timer <= 0:
-			mega_summon_timer = 60.0 # Changed to 60s
+			mega_summon_timer = 35.0
 			_attack_timer = 1.0
 			
 			var mc = Sprite2D.new()
@@ -507,26 +545,23 @@ func _physics_process(delta: float) -> void:
 	var pr_sq = (hit_radius + player.hit_radius) * (hit_radius + player.hit_radius)
 	if actual_dist_to_player < pr_sq:
 		player.take_damage(contact_dps * delta, true)
-		
-	# Infighting logic for Void
-	if void_mark_time > 0 and is_instance_valid(_void_target):
-		var vr_sq = (hit_radius + _void_target.hit_radius) * (hit_radius + _void_target.hit_radius)
-		if global_position.distance_squared_to(_void_target.global_position) < vr_sq:
-			if _void_target.has_method("take_damage"):
-				_void_target.take_damage(contact_dps * delta * 15.0)
 
 
 func take_damage(amount: float) -> void:
 	if is_dying: return
 	
-	var final_dmg = amount
+	var eff_armor = clampf(armor, 0.0, 0.75)
+	var final_dmg = amount * (1.0 - eff_armor)
+	
+	# Critical hit deals x2 damage and pierces 50% of armor!
 	if randf() < GameManager.passive_value("crit"):
-		final_dmg *= 2.0
+		final_dmg = amount * (1.0 - eff_armor * 0.5) * 2.0
 		color = Color.WHITE
 		_is_flashing = true
 		_flash_timer = 0.15
 		if sprite:
 			sprite.modulate = Color.WHITE
+			
 	hp -= final_dmg
 	
 	if final_dmg >= 1.0:
@@ -540,54 +575,41 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	proj.set_script(load("res://scripts/EnemyProjectile.gd"))
 	get_tree().current_scene.add_child(proj)
 	proj.global_position = global_position
-	proj.setup(dir * 120.0, 15.0) # 15 damage
+	proj.setup(dir * 220.0, 25.0) # 25 damage, fast velocity
 	
 func _explode_bomber() -> void:
+	var blast_radius = 280.0 # 5x larger explosion radius!
+	var blast_r_sq = blast_radius * blast_radius
 	var player = GameManager.player
-	if player and global_position.distance_squared_to(player.global_position) < 3600.0:
-		player.take_damage(40.0) # Massive damage
 	
-	# Explosion visuals
+	# Damage Player if in blast zone
+	if player:
+		var d_sq = global_position.distance_squared_to(player.global_position)
+		if d_sq < blast_r_sq:
+			var ratio = 1.0 - sqrt(d_sq) / blast_radius
+			var dmg = 35.0 + 35.0 * ratio
+			player.take_damage(dmg, false)
+			player._shake_intensity = 35.0
+	
+	# Splash damage to surrounding enemies / props
+	for e in GameManager.active_enemies:
+		if not is_instance_valid(e) or e == self or e.is_queued_for_deletion(): continue
+		if global_position.distance_squared_to(e.global_position) < blast_r_sq:
+			if e.has_method("take_damage"):
+				e.take_damage(65.0)
+			if e.has_method("apply_knockback"):
+				var dir = (e.global_position - global_position).normalized()
+				e.apply_knockback(dir, 300.0)
+
+	# 5x Giant Explosion visual effect
 	var p = DEATH_PARTICLE.instantiate()
 	if p:
 		p.position = global_position
-		p.modulate = Color.RED
-		p.scale = Vector2(3.0, 3.0)
+		p.modulate = Color(1.0, 0.25, 0.1)
+		p.scale = Vector2(15.0, 15.0) # 5x bigger!
 		get_tree().current_scene.add_child(p)
 
 	queue_free()
-
-func _trigger_void_spread() -> void:
-	if not active_auras.has("void"): return
-	active_auras.erase("void")
-	queue_redraw()
-	
-	var void_count = 0
-	var pool = []
-	var r_sq = 350.0 * 350.0
-	for e in GameManager.active_enemies:
-		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
-		if e.get("active_auras") != null and type_string(typeof(e.active_auras)) == "Array" and e.active_auras.has("void"):
-			void_count += 1
-		elif e != self and not e.is_dying:
-			var d_sq: float = global_position.distance_squared_to(e.global_position)
-			if d_sq < r_sq:
-				pool.append({"node": e, "dist_sq": d_sq})
-				
-	if void_count >= 60:
-		return
-		
-	var base_dmg = max_hp * 0.2
-	if GameManager.current_class == "void_mage": base_dmg *= 1.2
-	
-	pool.sort_custom(func(a, b): return a.dist_sq < b.dist_sq)
-	var targets = []
-	for i in range(min(2, pool.size())):
-		targets.append(pool[i].node)
-		
-	for t in targets:
-		if t.has_method("apply_element"):
-			t.apply_element("void", base_dmg)
 
 func _spawn_swarm_near(radius: float) -> void:
 	if get_tree().get_nodes_in_group("enemies").size() >= 250:
@@ -675,22 +697,55 @@ func apply_element(type: String, dmg: float) -> void:
 			color = Color(0.3, 0.6, 1.0)
 			queue_redraw()
 		"dark":
-			var cap_hp = 100.0 if GameManager.has_rune_resonance("dark") else 50.0
-			var cap_dmg = 0.4 if GameManager.has_rune_resonance("dark") else 0.2
+			var cap_hp = 50.0 if GameManager.has_rune_resonance("dark") else 25.0
+			var cap_dmg = 0.25 if GameManager.has_rune_resonance("dark") else 0.15
 			if GameManager.stolen_dark_hp < cap_hp:
-				GameManager.stolen_dark_hp = min(cap_hp, GameManager.stolen_dark_hp + 0.5)
+				GameManager.stolen_dark_hp = min(cap_hp, GameManager.stolen_dark_hp + 0.1)
 			if GameManager.stolen_dark_dmg < cap_dmg:
-				GameManager.stolen_dark_dmg = min(cap_dmg, GameManager.stolen_dark_dmg + 0.005)
+				GameManager.stolen_dark_dmg = min(cap_dmg, GameManager.stolen_dark_dmg + 0.001)
 			if GameManager.player:
 				GameManager.player._update_max_hp()
 				
 		"void":
-			if GameManager.has_rune_resonance("void") and randf() < 0.001: # 0.1%
+			if GameManager.has_rune_resonance("void") and randf() < 0.002: # 0.2%
 				GameManager.trigger_void_nuke()
 				return
 				
-			if void_mark_time <= 0:
-				void_mark_time = 4.0
+			_proc_void_effect(dmg)
+
+func _proc_void_effect(dmg: float) -> void:
+	if is_dying or hp <= 0: return
+	
+	var has_prism = GameManager.active_relics.has("void_prism")
+	var instant_kill_chance = 0.35 if has_prism else 0.20
+	var split_count = 3 if has_prism else 2
+	
+	if randf() < instant_kill_chance:
+		# 20% / 35% Instant Singularity Collapse (Black Hole)
+		var rift = VoidRiftEffect.new()
+		get_tree().current_scene.add_child(rift)
+		rift.setup_eradication(global_position)
+		
+		if enemy_type == "boss":
+			take_damage(max_hp * 0.20)
+		else:
+			take_damage(max_hp * 10.0)
+	else:
+		# 80% / 65% Void Fission Spores
+		take_damage(dmg * 1.35)
+		
+		# Find nearby split targets
+		var targets = _get_nearest_enemies_except(self, split_count, 220.0)
+		for t in targets:
+			if is_instance_valid(t) and not t.is_queued_for_deletion():
+				var rift = VoidRiftEffect.new()
+				get_tree().current_scene.add_child(rift)
+				rift.setup_split(global_position, t.global_position)
+				
+				if t.has_method("take_damage"):
+					t.take_damage(dmg * 0.85)
+				if t.has_method("apply_element"):
+					t.apply_element("void", dmg * 0.5)
 
 func _check_reactions(dmg: float) -> void:
 	if reaction_cooldown > 0: return
@@ -698,21 +753,26 @@ func _check_reactions(dmg: float) -> void:
 	var count = active_auras.size()
 	if count == 4:
 		# Quadruple Hit: Void Eradication
-		reaction_cooldown = 5.0
-		_die() # Black hole swallows them
+		reaction_cooldown = 4.0
+		if enemy_type == "boss":
+			take_damage(max_hp * 0.15)
+		else:
+			take_damage(max_hp * 0.65)
+			if hp <= max_hp * 0.65:
+				_die()
 	elif count == 3:
 		# Triple Hit
 		reaction_cooldown = 2.0
-		take_damage(dmg * 3.0)
-		_burn_dps = dmg
-		_burn_time = 3.0
+		take_damage(dmg * 1.8)
+		_burn_dps = dmg * 0.5
+		_burn_time = 2.5
 	elif count == 2:
 		# Double Hit
 		reaction_cooldown = 1.0
-		take_damage(dmg * 1.5)
+		take_damage(dmg * 1.3)
 		var target = _get_nearest_enemy_except(self)
 		if target:
-			target.apply_element(active_auras[0], dmg * 0.5)
+			target.apply_element(active_auras[0], dmg * 0.4)
 
 
 
@@ -769,9 +829,6 @@ func _die() -> void:
 	if is_dying: return
 	is_dying = true
 	
-	if active_auras.has("void"):
-		_trigger_void_spread()
-	
 	if is_instance_valid(boss_warning_line):
 		boss_warning_line.queue_free()
 	if enemy_type == "boss":
@@ -822,6 +879,19 @@ func _die() -> void:
 		r.set_script(load("res://scripts/Relic.gd"))
 		get_tree().current_scene.add_child(r)
 		r.global_position = global_position
+
+	# Treasure Chest drop (100% for mini-boss/boss, 15% for heavy tanks/summoners)
+	var chest_chance = 0.0
+	if enemy_type == "boss" or enemy_type == "mini_boss":
+		chest_chance = 1.0
+	elif enemy_type == "tank_blue" or enemy_type == "summoner":
+		chest_chance = 0.15
+		
+	if randf() < chest_chance:
+		var chest = Area2D.new()
+		chest.set_script(load("res://scripts/TreasureChest.gd"))
+		get_tree().current_scene.add_child(chest)
+		chest.global_position = global_position
 
 	queue_free()
 

@@ -66,3 +66,23 @@ func start_game(class_id: String, map_tier: int) -> void:
 		$DevPanel.show()
 	
 	GameManager.start_run_with_class_and_map(class_id, map_tier)
+
+var pause_menu_instance: Node = null
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		if current_ui != null:
+			return # In menu
+		if GameManager.game_over or GameManager.paused_for_levelup:
+			return
+			
+		if is_instance_valid(pause_menu_instance):
+			get_tree().paused = false
+			pause_menu_instance.queue_free()
+			pause_menu_instance = null
+		else:
+			get_tree().paused = true
+			var script = load("res://scripts/PauseMenuUI.gd")
+			if script:
+				pause_menu_instance = script.new()
+				get_tree().root.add_child(pause_menu_instance)
