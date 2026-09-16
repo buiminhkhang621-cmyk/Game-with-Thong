@@ -8,9 +8,21 @@ var active_event_duration: float = 0.0
 # Event state trackers
 var meteor_timer: float = 0.0
 var vortex_node: Node2D = null
+var _bg_node: Node2D = null
 
 func _ready() -> void:
 	z_index = 50
+
+func _get_bg() -> Node2D:
+	if not _bg_node or not is_instance_valid(_bg_node):
+		_bg_node = get_tree().current_scene.find_child("Background", true, false)
+	return _bg_node
+
+func _sanitize_pos(target_pos: Vector2, fallback_pos: Vector2) -> Vector2:
+	var bg = _get_bg()
+	if bg and bg.has_method("get_valid_floor_pos"):
+		return bg.get_valid_floor_pos(target_pos, fallback_pos)
+	return target_pos
 
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup:
@@ -114,7 +126,8 @@ func _end_active_event() -> void:
 func _call_meteor() -> void:
 	var player = GameManager.player
 	if not player: return
-	var target_pos = player.global_position + Vector2(randf_range(-300, 300), randf_range(-220, 220))
+	var raw_target = player.global_position + Vector2(randf_range(-300, 300), randf_range(-220, 220))
+	var target_pos = _sanitize_pos(raw_target, player.global_position)
 	
 	var strike = Node2D.new()
 	get_tree().current_scene.add_child(strike)
@@ -124,7 +137,8 @@ func _call_meteor() -> void:
 func _spawn_void_vortex() -> void:
 	var player = GameManager.player
 	if not player: return
-	var v_pos = player.global_position + Vector2(randf_range(-150, 150), randf_range(-150, 150))
+	var raw_v_pos = player.global_position + Vector2(randf_range(-150, 150), randf_range(-150, 150))
+	var v_pos = _sanitize_pos(raw_v_pos, player.global_position)
 	
 	vortex_node = Node2D.new()
 	get_tree().current_scene.add_child(vortex_node)
@@ -136,7 +150,8 @@ func _spawn_golden_goblins(count: int) -> void:
 	if not player: return
 	for i in range(count):
 		var angle = (TAU / count) * i + randf_range(-0.3, 0.3)
-		var pos = player.global_position + Vector2(cos(angle), sin(angle)) * randf_range(280.0, 360.0)
+		var raw_pos = player.global_position + Vector2(cos(angle), sin(angle)) * randf_range(280.0, 360.0)
+		var pos = _sanitize_pos(raw_pos, player.global_position)
 		var e = load("res://scenes/EnemyCommon.tscn").instantiate()
 		get_tree().current_scene.add_child(e)
 		e.global_position = pos

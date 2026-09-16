@@ -36,10 +36,10 @@ func _explode() -> void:
 				var dir = (e.global_position - global_position).normalized()
 				e.apply_knockback(dir, 350.0)
 				
-	# Damage player slightly if in danger zone
+	# Damage player slightly if in direct epicenter (< 45px)
 	var player = GameManager.player
 	if player and is_instance_valid(player):
-		if global_position.distance_squared_to(player.global_position) <= (radius * 0.7) * (radius * 0.7):
+		if global_position.distance_squared_to(player.global_position) <= 45.0 * 45.0:
 			player.take_damage(16.0, true)
 
 func _draw() -> void:

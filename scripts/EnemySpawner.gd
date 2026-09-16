@@ -14,10 +14,22 @@ var _event_6m_done: bool = false
 var _event_7m30_done: bool = false
 var _event_8m30_done: bool = false
 var _blood_moon_timer: float = 0.0
+var _bg_node: Node2D = null
 
 func _ready() -> void:
 	var event_mgr = RandomEventManager.new()
 	add_child(event_mgr)
+
+func _get_bg() -> Node2D:
+	if not _bg_node or not is_instance_valid(_bg_node):
+		_bg_node = get_tree().current_scene.find_child("Background", true, false)
+	return _bg_node
+
+func _sanitize_pos(target_pos: Vector2, fallback_pos: Vector2) -> Vector2:
+	var bg = _get_bg()
+	if bg and bg.has_method("get_valid_floor_pos"):
+		return bg.get_valid_floor_pos(target_pos, fallback_pos)
+	return target_pos
 
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup or GameManager.player == null:
@@ -118,7 +130,8 @@ func _spawn_swarm_ring(count: int) -> void:
 	if not player: return
 	for i in range(count):
 		var angle = (TAU / count) * i
-		var pos = player.global_position + Vector2(cos(angle), sin(angle)) * randf_range(380.0, 480.0)
+		var raw_pos = player.global_position + Vector2(cos(angle), sin(angle)) * randf_range(380.0, 480.0)
+		var pos = _sanitize_pos(raw_pos, player.global_position)
 		var e = enemy_scene.instantiate()
 		get_tree().current_scene.add_child(e)
 		e.global_position = pos
@@ -130,7 +143,8 @@ func _spawn_tank_encirclement(count: int) -> void:
 	if not player: return
 	for i in range(count):
 		var angle = (TAU / count) * i
-		var pos = player.global_position + Vector2(cos(angle), sin(angle)) * 420.0
+		var raw_pos = player.global_position + Vector2(cos(angle), sin(angle)) * 420.0
+		var pos = _sanitize_pos(raw_pos, player.global_position)
 		var e = enemy_scene.instantiate()
 		get_tree().current_scene.add_child(e)
 		e.global_position = pos
@@ -141,7 +155,8 @@ func _spawn_mini_boss(base_type: String, _boss_name: String) -> void:
 	var player = GameManager.player
 	if not player: return
 	var angle = randf() * TAU
-	var pos = player.global_position + Vector2(cos(angle), sin(angle)) * 300.0
+	var raw_pos = player.global_position + Vector2(cos(angle), sin(angle)) * 300.0
+	var pos = _sanitize_pos(raw_pos, player.global_position)
 	var e = enemy_scene.instantiate()
 	get_tree().current_scene.add_child(e)
 	e.global_position = pos
@@ -154,13 +169,36 @@ func _spawn_mini_boss(base_type: String, _boss_name: String) -> void:
 	if e.has_node("AnimatedSprite2D"):
 		e.get_node("AnimatedSprite2D").modulate = Color(1.0, 0.35, 0.35)
 
+var mob_spawner_sites: Array = []
+
 func _spawn() -> void:
-	var angle := randf() * TAU
-	var pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * spawn_radius
+	var player = GameManager.player
+	if not player: return
+	
+	var pos: Vector2 = Vector2.ZERO
+	var preferred_type = ""
+	
+	# Try to find nearby AI spawner site (distance between 250px and 700px)
+	var candidate_spawners = []
+	for sp in mob_spawner_sites:
+		var sp_pos = Vector2(sp.get("x", 0), sp.get("y", 0))
+		var d = player.global_position.distance_to(sp_pos)
+		if d >= 220.0 and d <= 750.0:
+			candidate_spawners.append(sp)
+			
+	if candidate_spawners.size() > 0 and randf() < 0.65:
+		var chosen = candidate_spawners[randi() % candidate_spawners.size()]
+		var raw_pos = Vector2(chosen.get("x", 0), chosen.get("y", 0)) + Vector2(randf_range(-30, 30), randf_range(-30, 30))
+		pos = _sanitize_pos(raw_pos, player.global_position)
+		preferred_type = chosen.get("type", "")
+	else:
+		var angle := randf() * TAU
+		var raw_pos = player.global_position + Vector2(cos(angle), sin(angle)) * spawn_radius + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+		pos = _sanitize_pos(raw_pos, player.global_position)
 
 	var e = enemy_scene.instantiate()
 	get_tree().current_scene.add_child(e)
-	e.global_position = pos + Vector2(randf_range(-20, 20), randf_range(-20, 20))
+	e.global_position = pos
 	
 	# Determine type based on time
 	var t_minutes = GameManager.run_time / 60.0
@@ -201,7 +239,8 @@ func _spawn() -> void:
 
 func _spawn_boss() -> void:
 	var angle := randf() * TAU
-	var pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * 250.0
+	var raw_pos: Vector2 = GameManager.player.global_position + Vector2(cos(angle), sin(angle)) * 250.0
+	var pos: Vector2 = _sanitize_pos(raw_pos, GameManager.player.global_position)
 	
 	var e = enemy_scene.instantiate()
 	get_tree().current_scene.add_child(e)

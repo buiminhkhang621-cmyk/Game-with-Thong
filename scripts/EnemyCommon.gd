@@ -563,9 +563,11 @@ func _physics_process(delta: float) -> void:
 				sprite.modulate = color
 			queue_redraw()
 
+	var effective_enemy_r = max(8.0, hit_radius * 0.55)
+	var effective_player_r = 10.0
+	var touch_r = effective_enemy_r + effective_player_r
 	var actual_dist_to_player: float = global_position.distance_squared_to(player.global_position)
-	var pr_sq = (hit_radius + player.hit_radius) * (hit_radius + player.hit_radius)
-	if actual_dist_to_player < pr_sq:
+	if actual_dist_to_player < touch_r * touch_r:
 		player.take_damage(contact_dps * delta, true)
 
 
@@ -583,15 +585,21 @@ func take_damage(amount: float) -> void:
 		_flash_timer = 0.15
 		if sprite:
 			sprite.modulate = Color.WHITE
-			
+	
 	hp -= final_dmg
 	
-	if final_dmg >= 1.0:
-		GameManager.add_combo_damage(final_dmg)
+	# Floating damage numbers
+	var dn = load("res://scenes/DamageNumber.tscn").instantiate()
+	get_tree().current_scene.add_child(dn)
+	dn.global_position = global_position + Vector2(randf_range(-10, 10), randf_range(-15, 0))
+	dn.setup(final_dmg, randf() < GameManager.passive_value("crit"), color)
+	
+	# Combo system hit
+	GameManager.register_hit(final_dmg)
 	
 	if hp <= 0.0:
 		_die()
-
+		
 func _fire_sniper_projectile(dir: Vector2) -> void:
 	var proj = Node2D.new()
 	proj.set_script(load("res://scripts/EnemyProjectile.gd"))
@@ -600,18 +608,18 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	proj.setup(dir * 220.0, 25.0) # 25 damage, fast velocity
 	
 func _explode_bomber() -> void:
-	var blast_radius = 280.0 # 5x larger explosion radius!
+	var blast_radius = 75.0 # Fair and visible blast radius!
 	var blast_r_sq = blast_radius * blast_radius
 	var player = GameManager.player
 	
 	# Damage Player if in blast zone
-	if player:
+	if player and is_instance_valid(player):
 		var d_sq = global_position.distance_squared_to(player.global_position)
 		if d_sq < blast_r_sq:
 			var ratio = 1.0 - sqrt(d_sq) / blast_radius
-			var dmg = 35.0 + 35.0 * ratio
-			player.take_damage(dmg, false)
-			player._shake_intensity = 35.0
+			var dmg = 20.0 + 20.0 * ratio
+			player.take_damage(dmg, true)
+			player._shake_intensity = 20.0
 	
 	# Splash damage to surrounding enemies / props
 	for e in GameManager.active_enemies:
@@ -623,12 +631,12 @@ func _explode_bomber() -> void:
 				var dir = (e.global_position - global_position).normalized()
 				e.apply_knockback(dir, 300.0)
 
-	# 5x Giant Explosion visual effect
+	# Explosion visual effect
 	var p = DEATH_PARTICLE.instantiate()
 	if p:
 		p.position = global_position
 		p.modulate = Color(1.0, 0.25, 0.1)
-		p.scale = Vector2(15.0, 15.0) # 5x bigger!
+		p.scale = Vector2(4.0, 4.0)
 		get_tree().current_scene.add_child(p)
 
 	queue_free()
@@ -771,31 +779,134 @@ func _proc_void_effect(dmg: float) -> void:
 					t.apply_element("void", dmg * 0.5)
 
 func _check_reactions(dmg: float) -> void:
-	if reaction_cooldown > 0: return
+	if reaction_cooldown > 0 or is_dying: return
 	
 	var count = active_auras.size()
-	if count == 4:
-		# Quadruple Hit: Void Eradication
+	if count >= 4:
+		# --- 1. QUADRUPLE REACTION: GENESIS ASTRAL COLLAPSE ---
 		reaction_cooldown = 4.0
+		var fx = ElementalVisualEffect.new()
+		get_tree().current_scene.add_child(fx)
+		fx.setup_genesis_collapse(global_position)
+		
+		armor = 0.0
+		is_frozen = true
+		ice_slow_time = 4.0
 		if enemy_type == "boss":
-			take_damage(max_hp * 0.15)
+			take_damage(max_hp * 0.25)
 		else:
-			take_damage(max_hp * 0.65)
-			if hp <= max_hp * 0.65:
+			take_damage(max_hp * 0.80)
+			if hp <= max_hp * 0.80:
 				_die()
+				return
+				
+		# Screen-wide shockwave to surrounding enemies
+		var nearby = _get_nearest_enemies_except(self, 8, 300.0)
+		for t in nearby:
+			if is_instance_valid(t) and t.has_method("take_damage"):
+				t.take_damage(dmg * 2.5)
+				t.armor = max(0.0, t.armor - 0.30)
+				
 	elif count == 3:
-		# Triple Hit
-		reaction_cooldown = 2.0
-		take_damage(dmg * 1.8)
-		_burn_dps = dmg * 0.5
-		_burn_time = 2.5
+		# --- 2. TRIPLE REACTIONS ---
+		reaction_cooldown = 2.2
+		var fx = ElementalVisualEffect.new()
+		get_tree().current_scene.add_child(fx)
+		
+		if active_auras.has("lightning") and active_auras.has("ice") and active_auras.has("dark"):
+			# Tri-Elemental Tempest (Bão Tố Tam Giác)
+			fx.setup_triple_tempest(global_position)
+			is_frozen = true
+			ice_slow_time = 2.5
+			take_damage(dmg * 2.8)
+			if GameManager.player: GameManager.player.heal(18.0)
+			
+		elif active_auras.has("lightning") and active_auras.has("ice") and active_auras.has("void"):
+			# Cosmic Sub-Zero Cataclysm (Băng Lôi Vũ Trụ Sụp Đổ)
+			fx.setup_genesis_collapse(global_position)
+			take_damage(dmg * 3.2)
+			var targets = _get_nearest_enemies_except(self, 6, 260.0)
+			for t in targets:
+				if is_instance_valid(t) and t.has_method("apply_element"):
+					t.is_frozen = true
+					t.ice_slow_time = 3.0
+					t.take_damage(dmg * 1.8)
+					
+		elif active_auras.has("lightning") and active_auras.has("dark") and active_auras.has("void"):
+			# Eldritch Void Thunder (Lôi Phạt Hư Vô Thần Diệt)
+			fx.setup_shadow_smite(global_position)
+			armor = max(0.0, armor - 0.50)
+			take_damage(dmg * 3.5)
+			
+		else: # ice + dark + void
+			# Frozen Abyssal Extinction (Tận Diệt Hắc Băng Vũ Trụ)
+			fx.setup_black_ice_tomb(global_position)
+			if hp < max_hp * 0.35 and enemy_type != "boss":
+				_die()
+				return
+			else:
+				take_damage(dmg * 3.0)
+				
 	elif count == 2:
-		# Double Hit
+		# --- 3. DOUBLE REACTIONS (6 SPECIFIC COMBINATIONS) ---
 		reaction_cooldown = 1.0
-		take_damage(dmg * 1.3)
-		var target = _get_nearest_enemy_except(self)
-		if target:
-			target.apply_element(active_auras[0], dmg * 0.4)
+		var fx = ElementalVisualEffect.new()
+		get_tree().current_scene.add_child(fx)
+		
+		if active_auras.has("lightning") and active_auras.has("ice"):
+			# ⚡ + ❄️ Superconductor (Siêu Dẫn Băng Lôi)
+			fx.setup_superconductor(global_position)
+			armor = max(0.0, armor - 0.50) # Strip 50% armor!
+			is_frozen = true
+			ice_slow_time = 2.0
+			take_damage(dmg * 2.2)
+			var targets = _get_nearest_enemies_except(self, 4, 180.0)
+			for t in targets:
+				if is_instance_valid(t) and t.has_method("take_damage"):
+					t.take_damage(dmg * 1.2)
+					t.is_frozen = true
+					t.ice_slow_time = 1.5
+					
+		elif active_auras.has("lightning") and active_auras.has("dark"):
+			# ⚡ + 👁️ Shadow Smite (Lôi Hồn Hắc Ám)
+			fx.setup_shadow_smite(global_position)
+			take_damage(dmg * 2.4)
+			if GameManager.player:
+				GameManager.player.heal(10.0)
+				
+		elif active_auras.has("lightning") and active_auras.has("void"):
+			# ⚡ + 🌌 Void Singularity Discharge (Xung Hư Vô Quá Tải)
+			fx.setup_void_discharge(global_position)
+			take_damage(dmg * 2.6)
+			var targets = _get_nearest_enemies_except(self, 4, 200.0)
+			for t in targets:
+				if is_instance_valid(t):
+					var dir = (global_position - t.global_position).normalized()
+					t.global_position += dir * 80.0
+					if t.has_method("take_damage"): t.take_damage(dmg * 1.4)
+					
+		elif active_auras.has("ice") and active_auras.has("dark"):
+			# ❄️ + 👁️ Black Ice Tomb (Mộ Băng Hắc Ám)
+			fx.setup_black_ice_tomb(global_position)
+			is_frozen = true
+			ice_slow_time = 3.5
+			apply_burn(dmg * 0.6, 3.5) # 80 DPS in tomb
+			take_damage(dmg * 1.8)
+			
+		elif active_auras.has("ice") and active_auras.has("void"):
+			# ❄️ + 🌌 Absolute Zero (Điểm Không Tuyệt Đối)
+			fx.setup_absolute_zero(global_position)
+			var hp_loss = max_hp * 0.30 if enemy_type != "boss" else max_hp * 0.15
+			take_damage(hp_loss)
+			
+		elif active_auras.has("dark") and active_auras.has("void"):
+			# 👁️ + 🌌 Abyssal Black Hole (Hố Đen Vực Thẳm)
+			fx.setup_abyssal_vortex(global_position)
+			if hp < max_hp * 0.35 and enemy_type != "boss":
+				_die()
+				return
+			else:
+				take_damage(dmg * 3.0)
 
 
 

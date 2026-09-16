@@ -159,9 +159,6 @@ func _process(delta: float) -> void:
 	if Engine.time_scale < 1.0:
 		Engine.time_scale = move_toward(Engine.time_scale, 1.0, delta * 2.0)
 		
-	if is_blood_sacrifice and player and is_instance_valid(player):
-		player.take_damage(2.0 * delta, false)
-			
 	_update_bgm()
 
 func hit_stop(duration: float = 0.05) -> void:
@@ -241,6 +238,16 @@ func register_player(p: Node) -> void:
 
 var current_class: String = ""
 var current_map_tier: int = 1
+
+var current_combo_hits: int = 0
+var current_combo_dmg: float = 0.0
+var _combo_decay_timer: float = 0.0
+
+func register_hit(dmg: float) -> void:
+	current_combo_hits += 1
+	current_combo_dmg += dmg
+	_combo_decay_timer = 2.5
+	combo_updated.emit(current_combo_dmg, current_combo_hits)
 
 func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	current_class = class_id
