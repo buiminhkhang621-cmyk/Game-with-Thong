@@ -95,7 +95,8 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 		fountain.global_position = Vector2(sh.get("x", 0), sh.get("y", 0))
 		add_child(fountain)
 
-	# 5. Solid Wall Collisions on Layer 1 (Obstacles)
+	# 5. Solid Wall & Abyss Void Collisions on Layer 1 (Obstacles)
+	verified_floor_points.clear()
 	if grid.size() > 0:
 		var wall_body = StaticBody2D.new()
 		wall_body.collision_layer = 1
@@ -106,8 +107,16 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 			var span_start = -1
 			for x in range(grid_width):
 				var val = grid[y][x]
-				var is_wall = (val == 10) # T_WALL_SOLID
-				if is_wall:
+				# Any non-walkable tile (0 = Void Abyss, 10 = Solid Wall, 7 = Chasm Hole) is physically impassable!
+				var is_solid = (val == 0 or val == 10 or val == 7)
+				
+				# Cache sample verified floor positions for guaranteed safe spawns and respawns
+				if not is_solid and (x % 3 == 0 and y % 3 == 0):
+					var fx = (x - grid_width/2.0 + 0.5) * tile_size
+					var fy = (y - grid_height/2.0 + 0.5) * tile_size
+					verified_floor_points.append(Vector2(fx, fy))
+					
+				if is_solid:
 					if span_start == -1: span_start = x
 				else:
 					if span_start != -1:
@@ -134,32 +143,49 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 
 	queue_redraw()
 
+var verified_floor_points: Array[Vector2] = []
+
 func is_walkable_tile(world_pos: Vector2) -> bool:
 	if grid.is_empty():
-		return true
+		return false
 	var gx = int(floor((world_pos.x + half_w) / tile_size))
 	var gy = int(floor((world_pos.y + half_h) / tile_size))
 	if gx < 0 or gx >= grid_width or gy < 0 or gy >= grid_height:
 		return false
 	var val = grid[gy][gx]
-	return val != 0 and val != 10 # 0=Void, 10=Solid Wall
+	# Strictly non-walkable if Void (0), Solid Wall (10), or Chasm Pit (7)
+	return val != 0 and val != 10 and val != 7
+
+func get_closest_valid_floor_pos(pos: Vector2) -> Vector2:
+	if verified_floor_points.is_empty():
+		return pos
+	var best_pos = verified_floor_points[0]
+	var best_dist_sq = pos.distance_squared_to(best_pos)
+	for fp in verified_floor_points:
+		var d_sq = pos.distance_squared_to(fp)
+		if d_sq < best_dist_sq:
+			best_dist_sq = d_sq
+			best_pos = fp
+	return best_pos
 
 func get_valid_floor_pos(target_pos: Vector2, fallback_pos: Vector2) -> Vector2:
 	if is_walkable_tile(target_pos):
 		return target_pos
-	for r in range(1, 12):
-		for angle_i in range(8):
-			var a = (TAU / 8.0) * angle_i
-			var test_pos = target_pos + Vector2(cos(a), sin(a)) * (r * tile_size * 0.6)
+	for r in range(1, 14):
+		for angle_i in range(10):
+			var a = (TAU / 10.0) * angle_i
+			var test_pos = target_pos + Vector2(cos(a), sin(a)) * (r * tile_size * 0.5)
 			if is_walkable_tile(test_pos):
 				return test_pos
-	return fallback_pos
+	if is_walkable_tile(fallback_pos):
+		return fallback_pos
+	return get_closest_valid_floor_pos(target_pos)
 
 func _process(_delta: float) -> void:
 	queue_redraw()
 
 func _draw() -> void:
-	# Draw massive pure pitch black backdrop
+	# Draw massive pure pitch black backdrop (Endless Void)
 	draw_rect(Rect2(-30000, -30000, 60000, 60000), Color(0.0, 0.0, 0.0, 1.0), true)
 	
 	if not tileset_texture or grid.is_empty():

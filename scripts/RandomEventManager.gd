@@ -15,14 +15,24 @@ func _ready() -> void:
 
 func _get_bg() -> Node2D:
 	if not _bg_node or not is_instance_valid(_bg_node):
-		_bg_node = get_tree().current_scene.find_child("Background", true, false)
+		if get_parent() and get_parent().has_node("Background"):
+			_bg_node = get_parent().get_node("Background")
+		elif get_tree() and get_tree().current_scene:
+			_bg_node = get_tree().current_scene.find_child("Background", true, false)
 	return _bg_node
 
 func _sanitize_pos(target_pos: Vector2, fallback_pos: Vector2) -> Vector2:
 	var bg = _get_bg()
-	if bg and bg.has_method("get_valid_floor_pos"):
-		return bg.get_valid_floor_pos(target_pos, fallback_pos)
-	return target_pos
+	if bg:
+		if bg.has_method("is_walkable_tile") and bg.is_walkable_tile(target_pos):
+			return target_pos
+		if bg.has_method("get_valid_floor_pos"):
+			var checked = bg.get_valid_floor_pos(target_pos, fallback_pos)
+			if bg.is_walkable_tile(checked):
+				return checked
+		if bg.has_method("get_closest_valid_floor_pos"):
+			return bg.get_closest_valid_floor_pos(fallback_pos)
+	return fallback_pos
 
 func _process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup:

@@ -37,6 +37,16 @@ var bomber_fuse: float = -1.0
 var teleport_cooldown: float = 0.0
 var summon_cooldown: float = 0.0
 var mega_summon_timer: float = 0.0
+var _contact_cooldown: float = 0.0
+var _bg_ref: Node2D = null
+
+func _get_bg() -> Node2D:
+	if not _bg_ref or not is_instance_valid(_bg_ref):
+		if get_parent() and get_parent().has_node("Background"):
+			_bg_ref = get_parent().get_node("Background")
+		elif get_tree() and get_tree().current_scene:
+			_bg_ref = get_tree().current_scene.find_child("Background", true, false)
+	return _bg_ref
 
 var hp: float
 
@@ -58,69 +68,70 @@ func setup_type(type: String) -> void:
 	enemy_type = type
 	match type:
 		"boss":
-			speed *= 0.75
-			max_hp *= 12.0
+			speed *= 0.95
+			max_hp *= 14.0
 			hit_radius *= 3.0
-			contact_dps *= 2.5
+			contact_dps *= 3.5
 			armor = 0.50
 			boss_phase = 1
 			boss_state = "idle"
-			boss_attack_cooldown = 3.5
+			boss_attack_cooldown = 2.8
 		"swarm":
-			speed *= 1.65
-			max_hp *= 0.4
+			speed *= 1.85
+			max_hp *= 0.45
 			hit_radius *= 0.6
-			contact_dps *= 1.0
+			contact_dps *= 1.2
 			armor = 0.0
 		"tank_blue", "tank":
-			speed *= 0.65
-			max_hp *= 6.0
+			speed *= 0.80
+			max_hp *= 7.0
 			hit_radius *= 2.5
-			contact_dps *= 1.8
-			armor = 0.62 # 62% Armor Heavy Tank
+			contact_dps *= 2.5
+			armor = 0.65 # 65% Armor Heavy Executioner
 		"tank_yellow":
-			speed *= 0.8
-			max_hp *= 3.8
+			speed *= 0.92
+			max_hp *= 4.5
 			hit_radius *= 2.0
-			contact_dps *= 1.4
-			armor = 0.50 # 50% Armor Golem
+			contact_dps *= 1.8
+			armor = 0.52 # 52% Armor Golem
 		"sniper":
-			speed *= 0.95
-			max_hp *= 1.2
-			contact_dps *= 1.5
+			speed *= 1.15
+			max_hp *= 1.4
+			contact_dps *= 1.6
 			armor = 0.30
-			sniper_cooldown = randf_range(0.8, 1.4)
+			sniper_cooldown = randf_range(0.7, 1.2)
 		"bomber":
-			speed *= 1.4
-			max_hp *= 1.6
-			contact_dps *= 1.0
+			speed *= 1.65
+			max_hp *= 1.8
+			contact_dps *= 1.2
 			armor = 0.25
 		"teleporter":
-			speed *= 1.45
-			max_hp *= 1.5
-			contact_dps *= 1.6
+			speed *= 1.55
+			max_hp *= 1.7
+			contact_dps *= 1.8
 			armor = 0.32
-			teleport_cooldown = randf_range(1.6, 2.8)
+			teleport_cooldown = randf_range(1.4, 2.4)
 		"summoner":
-			speed *= 1.2
-			max_hp *= 4.5
-			contact_dps *= 1.4
-			armor = 0.42
-			summon_cooldown = randf_range(2.0, 3.2) # 2x faster!
-			mega_summon_timer = randf_range(18.0, 26.0)
+			speed *= 1.3
+			max_hp *= 5.0
+			contact_dps *= 1.5
+			armor = 0.45
+			summon_cooldown = randf_range(1.8, 2.8)
+			mega_summon_timer = randf_range(16.0, 22.0)
 		_:
-			armor = 0.22 # Base 22% Armor for normal/swarm
+			armor = 0.22 # Base 22% Armor for normal
+			speed *= 1.15
 			
-	# Exponential Scaling over Time
+	# Exponential Scaling over Time (HARDCORE NIGHTMARE MODE)
 	var t_minutes = GameManager.run_time / 60.0
-	var hp_mult = 1.0 + pow(t_minutes, 1.5) * 0.45
-	var dmg_mult = 1.0 + pow(t_minutes, 1.3) * 0.35
-	var spd_mult = 1.0 + min(0.65, pow(t_minutes, 1.1) * 0.12)
+	var hp_mult = 1.0 + pow(t_minutes, 1.4) * 0.45
+	var dmg_mult = 1.0 + pow(t_minutes, 1.3) * 0.45
+	var spd_mult = 1.0 + min(0.70, pow(t_minutes, 1.1) * 0.15)
 	
 	max_hp *= hp_mult
 	contact_dps *= dmg_mult
 	speed *= spd_mult
-	armor = min(0.82, armor + t_minutes * 0.015)
+	armor = min(0.82, armor + t_minutes * 0.018)
 	
 	hp = max_hp
 	_original_color = color
@@ -223,6 +234,16 @@ func _physics_process(delta: float) -> void:
 	var player = GameManager.player
 	if player == null or is_dying:
 		return
+
+	if _contact_cooldown > 0:
+		_contact_cooldown -= delta
+
+	# Void Abyss Plunge check: Enemies falling or knocked into the dark void plunge and die!
+	var bg = _get_bg()
+	if bg and bg.has_method("is_walkable_tile"):
+		if not bg.is_walkable_tile(global_position):
+			_die_in_abyss()
+			return
 
 	# Handle status effect timers
 	if _is_flashing:
@@ -567,9 +588,64 @@ func _physics_process(delta: float) -> void:
 	var effective_player_r = 10.0
 	var touch_r = effective_enemy_r + effective_player_r
 	var actual_dist_to_player: float = global_position.distance_squared_to(player.global_position)
-	if actual_dist_to_player < touch_r * touch_r:
-		player.take_damage(contact_dps * delta, true)
+	if actual_dist_to_player < touch_r * touch_r and _contact_cooldown <= 0.0:
+		var base_strike_dmg = 34.0
+		var strike_cd = 0.45
+		
+		match enemy_type:
+			"swarm":
+				base_strike_dmg = 22.0
+				strike_cd = 0.35
+			"tank_yellow":
+				base_strike_dmg = 52.0
+				strike_cd = 0.55
+			"tank_blue", "tank":
+				base_strike_dmg = 75.0 # Massive Executioner strike (~75% HP!)
+				strike_cd = 0.65
+			"sniper":
+				base_strike_dmg = 30.0
+				strike_cd = 0.5
+			"teleporter":
+				base_strike_dmg = 40.0
+				strike_cd = 0.4
+			"summoner":
+				base_strike_dmg = 32.0
+				strike_cd = 0.5
+			"mini_boss":
+				base_strike_dmg = 85.0
+				strike_cd = 0.65
+			"boss":
+				base_strike_dmg = 100.0
+				strike_cd = 0.75
+			_:
+				base_strike_dmg = 34.0
+				strike_cd = 0.45
+				
+		var t_mins = GameManager.run_time / 60.0
+		var time_scaling = 1.0 + pow(t_mins, 1.25) * 0.35
+		var final_strike_dmg = base_strike_dmg * time_scaling
+		
+		_contact_cooldown = strike_cd
+		_attack_timer = 0.3
+		player.take_damage(final_strike_dmg, true)
+		
+		# Violent physical impact push
+		if player is CharacterBody2D:
+			var push_dir = (player.global_position - global_position).normalized()
+			if push_dir.length() < 0.1: push_dir = Vector2.UP
+			player.velocity += push_dir * 180.0
 
+func _die_in_abyss() -> void:
+	if is_dying: return
+	is_dying = true
+	var p = DEATH_PARTICLE.instantiate()
+	if p:
+		p.position = global_position
+		p.modulate = Color(0.12, 0.05, 0.25)
+		p.scale = Vector2(2.8, 2.8)
+		get_tree().current_scene.add_child(p)
+	GameManager.register_kill()
+	queue_free()
 
 func take_damage(amount: float) -> void:
 	if is_dying: return
@@ -605,38 +681,40 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	proj.set_script(load("res://scripts/EnemyProjectile.gd"))
 	get_tree().current_scene.add_child(proj)
 	proj.global_position = global_position
-	proj.setup(dir * 220.0, 25.0) # 25 damage, fast velocity
+	var t_mins = GameManager.run_time / 60.0
+	var dmg = 52.0 * (1.0 + t_mins * 0.25)
+	proj.setup(dir * 320.0, dmg)
 	
 func _explode_bomber() -> void:
-	var blast_radius = 75.0 # Fair and visible blast radius!
+	var blast_radius = 85.0
 	var blast_r_sq = blast_radius * blast_radius
 	var player = GameManager.player
 	
-	# Damage Player if in blast zone
+	# Damage Player if in blast zone (Heavy Lethal Burst: 70 - 115 HP!)
 	if player and is_instance_valid(player):
 		var d_sq = global_position.distance_squared_to(player.global_position)
 		if d_sq < blast_r_sq:
 			var ratio = 1.0 - sqrt(d_sq) / blast_radius
-			var dmg = 20.0 + 20.0 * ratio
+			var dmg = 70.0 + 45.0 * ratio
 			player.take_damage(dmg, true)
-			player._shake_intensity = 20.0
+			player._shake_intensity = 28.0
 	
 	# Splash damage to surrounding enemies / props
 	for e in GameManager.active_enemies:
 		if not is_instance_valid(e) or e == self or e.is_queued_for_deletion(): continue
 		if global_position.distance_squared_to(e.global_position) < blast_r_sq:
 			if e.has_method("take_damage"):
-				e.take_damage(65.0)
+				e.take_damage(85.0)
 			if e.has_method("apply_knockback"):
 				var dir = (e.global_position - global_position).normalized()
-				e.apply_knockback(dir, 300.0)
+				e.apply_knockback(dir, 350.0)
 
 	# Explosion visual effect
 	var p = DEATH_PARTICLE.instantiate()
 	if p:
 		p.position = global_position
 		p.modulate = Color(1.0, 0.25, 0.1)
-		p.scale = Vector2(4.0, 4.0)
+		p.scale = Vector2(5.0, 5.0)
 		get_tree().current_scene.add_child(p)
 
 	queue_free()

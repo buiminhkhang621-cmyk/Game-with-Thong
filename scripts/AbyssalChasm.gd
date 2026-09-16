@@ -29,11 +29,11 @@ func _process(delta: float) -> void:
 				
 				if not on_bridge:
 					# Player falls into pit!
-					player.take_damage(25.0, false)
+					player.take_damage(40.0, false)
 					var push_dir = (player.global_position - global_position).normalized()
 					if push_dir.length() < 0.1: push_dir = Vector2.UP
 					player.global_position = global_position + push_dir * (radius + 25.0)
-					player._shake_intensity = 25.0
+					player._shake_intensity = 32.0
 
 	# Check Enemies Fall
 	for e in GameManager.active_enemies:

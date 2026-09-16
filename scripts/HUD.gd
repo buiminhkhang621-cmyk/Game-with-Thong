@@ -29,6 +29,7 @@ func _ready() -> void:
 	GameManager.blood_moon_state_changed.connect(_on_blood_moon_changed)
 	
 	_setup_blood_moon_vignette()
+	_setup_damage_flash()
 	
 	var rune_radar = RuneRadar.new()
 	add_child(rune_radar)
@@ -109,7 +110,26 @@ func _process(_delta: float) -> void:
 		runes_display.queue_redraw()
 
 
+var damage_flash_rect: ColorRect = null
+var _last_hp: float = 100.0
+
+func _setup_damage_flash() -> void:
+	damage_flash_rect = ColorRect.new()
+	damage_flash_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	damage_flash_rect.color = Color(0.95, 0.05, 0.05, 0.0)
+	damage_flash_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(damage_flash_rect)
+
+func _flash_damage_vignette() -> void:
+	if not damage_flash_rect: return
+	damage_flash_rect.color = Color(0.9, 0.0, 0.0, 0.38)
+	var tween = get_tree().create_tween()
+	tween.tween_property(damage_flash_rect, "color:a", 0.0, 0.3)
+
 func _on_hp_changed(cur: float, max_hp: float) -> void:
+	if _last_hp > cur and (_last_hp - cur) >= 12.0:
+		_flash_damage_vignette()
+	_last_hp = cur
 	hp_bar.max_value = max_hp
 	hp_bar.value = cur
 
