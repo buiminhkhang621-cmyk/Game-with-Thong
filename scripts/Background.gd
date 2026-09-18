@@ -216,8 +216,15 @@ func get_valid_floor_pos(target_pos: Vector2, fallback_pos: Vector2) -> Vector2:
 		return fallback_pos
 	return get_closest_valid_floor_pos(target_pos)
 
+var _last_draw_pos: Vector2 = Vector2(INF, INF)
+
 func _process(_delta: float) -> void:
-	queue_redraw()
+	var player = GameManager.player
+	var cam_pos = player.global_position if player else Vector2.ZERO
+	# Only redraw when camera has moved >12px — massive perf win
+	if cam_pos.distance_squared_to(_last_draw_pos) > 144.0:
+		_last_draw_pos = cam_pos
+		queue_redraw()
 
 func _draw() -> void:
 	# Draw massive pure pitch black backdrop (Endless Void)

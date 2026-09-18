@@ -47,6 +47,7 @@ static func get_proj_texture() -> Texture2D:
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_to_group("projectiles")
 
 func _draw() -> void:
 	var tex = get_proj_texture()

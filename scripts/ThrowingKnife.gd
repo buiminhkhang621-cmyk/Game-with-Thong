@@ -33,6 +33,7 @@ func setup(vel: Vector2, dmg: float, crit: bool, pierce: int = 1, r: Array = [])
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	z_index = 2
+	add_to_group("projectiles")
 
 func _process(delta: float) -> void:
 	var gm = get_node_or_null("/root/GameManager")

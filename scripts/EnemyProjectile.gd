@@ -13,8 +13,11 @@ func setup(vel: Vector2, dmg: float, c: Color = Color(1.0, 0.2, 0.2)) -> void:
 	rotation = velocity.angle()
 
 func _ready() -> void:
+	add_to_group("enemy_projectiles")
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	var sprite = Sprite2D.new()
 	sprite.texture = load("res://Sprite/NPC/sniper_projectile.png")
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	add_child(sprite)
 
 func _process(delta: float) -> void:

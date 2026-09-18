@@ -534,7 +534,7 @@ func trigger_void_nuke() -> void:
 				if e.has_method("_die"):
 					e._die()
 					count += 1
-	print("VOID NUKE TRIGGERED! Collapsed ", count, " void entities.")
+	#print("VOID NUKE TRIGGERED! Collapsed ", count, " void entities.")
 	hit_stop(0.1) # 0.1s hit stop for huge impact
 	_is_nuking = false
 
@@ -847,7 +847,7 @@ func _check_spell_craft() -> void:
 		var v = collected_vong[crafted_spells.size()]
 		var n = collected_net[crafted_spells.size()]
 		crafted_spells.append({"vong": v, "net": n})
-		print("Weaved spell: ", v, " + ", n)
+		#print("Weaved spell: ", v, " + ", n)
 		_check_quest("craft_spell", crafted_spells.size())
 
 
@@ -1030,7 +1030,7 @@ func _check_quest(type: String, val: float) -> void:
 				q.current = q.target
 				quest_completed.emit(q_id, q.title)
 				save_game()
-				print("QUEST COMPLETED: ", q.title)
+				#print("QUEST COMPLETED: ", q.title)
 	
 func _ready() -> void:
 	load_settings()

@@ -56,14 +56,20 @@ func apply_skin(skin_id: String) -> void:
 		sprite.sprite_frames = sf
 		sprite.play("idle")
 
-	var col = CollisionShape2D.new()
-	var shape = CircleShape2D.new()
-	shape.radius = hit_radius * 0.8
-	col.shape = shape
-	add_child(col)
+	# Only add collision shape once (prevents stacking on restart)
+	if not has_node("PlayerCollision"):
+		var col = CollisionShape2D.new()
+		col.name = "PlayerCollision"
+		var shape = CircleShape2D.new()
+		shape.radius = hit_radius * 0.8
+		col.shape = shape
+		add_child(col)
 
-	var rune_aura = RunePossessionAura.new()
-	add_child(rune_aura)
+	# Only add rune aura once
+	if not has_node("RunePossessionAura"):
+		var rune_aura = RunePossessionAura.new()
+		rune_aura.name = "RunePossessionAura"
+		add_child(rune_aura)
 
 	collision_layer = 2
 	collision_mask = 1
@@ -90,8 +96,14 @@ func _get_bg() -> Node2D:
 			_bg_ref = get_tree().current_scene.find_child("Background", true, false)
 	return _bg_ref
 
+var _hp_update_timer: float = 0.0
+
 func _physics_process(delta: float) -> void:
-	_update_max_hp()
+	# Rate-limit expensive HP recalculation to 2x per second
+	_hp_update_timer -= delta
+	if _hp_update_timer <= 0.0:
+		_hp_update_timer = 0.5
+		_update_max_hp()
 	
 	if _jump_cooldown > 0.0:
 		_jump_cooldown -= delta
@@ -383,9 +395,9 @@ func _draw() -> void:
 	var center = Vector2(0, -z_height - 20.0)
 	# Dark state shimmer effect around sprite
 	if in_dark_state:
-		var time = Time.get_ticks_msec() / 1000.0
+		var time2 = Time.get_ticks_msec() / 1000.0
 		for i in range(4):
-			var angle = time * 2.0 + i * TAU / 4.0
+			var angle = time2 * 2.0 + i * TAU / 4.0
 			var orb_pos = center + Vector2(cos(angle), sin(angle) * 0.5) * 18.0
 			draw_circle(orb_pos, 3.5, Color(0.3, 0.0, 0.5, 0.8))
 

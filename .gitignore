@@ -22,3 +22,10 @@ main_menu_screenshot.*
 .DS_Store
 Thumbs.db
 
+# Python cache
+__pycache__/
+*.pyc
+
+# Agent/tool directories
+.agents/
+.gemini/

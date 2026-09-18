@@ -16,6 +16,7 @@ static func get_ball_texture() -> Texture2D:
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	add_to_group("projectiles")
 
 func setup(dir: Vector2, dmg: float, type: String) -> void:
 	velocity = dir

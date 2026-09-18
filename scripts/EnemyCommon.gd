@@ -15,6 +15,7 @@ var _flash_timer: float = 0.0
 var _original_color: Color
 var _burn_time: float = 0.0
 var _burn_dps: float = 0.0
+var _redraw_timer: float = 0.0
 
 var _void_proc_cooldown: float = 0.0
 var is_void_infected: bool = false
@@ -135,16 +136,35 @@ func setup_type(type: String) -> void:
 			armor = 0.22 # Base 22% Armor for normal
 			speed *= 1.15
 			
-	# Exponential Scaling over Time (HARDCORE NIGHTMARE MODE)
+	# ======== EXPONENTIAL SCALING (ABSOLUTE NIGHTMARE) ========
+	# Early game (0-3 min): gentle ramp so player can get skills
+	# Mid game (3-6 min): noticeable pressure increase
+	# Late game (6-8 min): brutal, enemies become deadly walls of stats
+	# End game (8+ min): near-impossible, only perfect builds survive
 	var t_minutes = GameManager.run_time / 60.0
-	var hp_mult = 1.0 + pow(t_minutes, 1.4) * 0.45
-	var dmg_mult = 1.0 + pow(t_minutes, 1.3) * 0.45
-	var spd_mult = 1.0 + min(0.70, pow(t_minutes, 1.1) * 0.15)
+	
+	# Base exponential curves (steeper than before)
+	var hp_base = 1.0 + pow(t_minutes, 1.65) * 0.55
+	var dmg_base = 1.0 + pow(t_minutes, 1.55) * 0.50
+	var spd_base = 1.0 + min(1.10, pow(t_minutes, 1.2) * 0.18)
+	
+	# Breakpoint multipliers - sudden difficulty spikes at key moments
+	var breakpoint_hp = 1.0
+	var breakpoint_dmg = 1.0
+	if t_minutes >= 3.0: breakpoint_hp *= 1.35; breakpoint_dmg *= 1.25  # 3 min spike
+	if t_minutes >= 5.0: breakpoint_hp *= 1.60; breakpoint_dmg *= 1.50  # 5 min wall
+	if t_minutes >= 7.0: breakpoint_hp *= 2.00; breakpoint_dmg *= 1.80  # 7 min nightmare
+	if t_minutes >= 9.0: breakpoint_hp *= 2.80; breakpoint_dmg *= 2.50  # 9 min impossible
+	
+	var hp_mult = hp_base * breakpoint_hp
+	var dmg_mult = dmg_base * breakpoint_dmg
+	var spd_mult = spd_base
 	
 	max_hp *= hp_mult
 	contact_dps *= dmg_mult
 	speed *= spd_mult
-	armor = min(0.82, armor + t_minutes * 0.018)
+	# Armor scales faster: enemies get tanky fast in late game
+	armor = min(0.88, armor + t_minutes * 0.028)
 	
 	hp = max_hp
 	_original_color = color
@@ -191,26 +211,26 @@ func setup_evolution(time_sec: float, tier_mult: float = 1.0) -> void:
 		_original_color = Color.WHITE
 	elif time_sec < 300.0:
 		evolution_tier = 1
-		max_hp *= 1.35 * tier_mult
-		contact_dps *= 1.25
-		armor = min(0.75, armor + 0.08)
-		speed *= 1.08
+		max_hp *= 1.8 * tier_mult
+		contact_dps *= 1.45
+		armor = min(0.80, armor + 0.12)
+		speed *= 1.12
 		_original_color = Color(1.0, 0.78, 0.78)
 	elif time_sec < 480.0:
 		evolution_tier = 2
-		max_hp *= 2.1 * tier_mult
-		contact_dps *= 1.6
-		armor = min(0.75, armor + 0.15)
-		speed *= 1.16
-		scale *= 1.12
+		max_hp *= 3.5 * tier_mult
+		contact_dps *= 2.2
+		armor = min(0.82, armor + 0.20)
+		speed *= 1.22
+		scale *= 1.18
 		_original_color = Color(0.85, 0.65, 1.0)
 	else:
 		evolution_tier = 3
-		max_hp *= 3.3 * tier_mult
-		contact_dps *= 2.0
-		armor = min(0.75, armor + 0.22)
-		speed *= 1.22
-		scale *= 1.20
+		max_hp *= 6.0 * tier_mult
+		contact_dps *= 3.2
+		armor = min(0.85, armor + 0.30)
+		speed *= 1.35
+		scale *= 1.30
 		_original_color = Color(1.0, 0.85, 0.45)
 		
 	hp = max_hp
@@ -665,7 +685,10 @@ func _physics_process(delta: float) -> void:
 				strike_cd = 0.45
 				
 		var t_mins = GameManager.run_time / 60.0
-		var time_scaling = 1.0 + pow(t_mins, 1.25) * 0.35
+		# Contact damage scales HARD in late game - getting touched should be terrifying
+		var time_scaling = 1.0 + pow(t_mins, 1.5) * 0.45
+		if t_mins >= 5.0: time_scaling *= 1.4  # 5 min contact spike
+		if t_mins >= 8.0: time_scaling *= 1.8  # 8 min one-shot territory
 		var final_strike_dmg = base_strike_dmg * time_scaling
 		
 		_contact_cooldown = strike_cd
@@ -783,8 +806,8 @@ func _spawn_mega_swarm() -> void:
 			e.hp = e.max_hp
 			e.speed *= 1.5
 			e.scale *= 1.5
-			if e.has_node("Sprite2D"):
-				e.get_node("Sprite2D").modulate = Color.RED
+			if e.has_node("AnimatedSprite2D"):
+				e.get_node("AnimatedSprite2D").modulate = Color.RED
 
 func apply_knockback(dir: Vector2, force: float) -> void:
 	if is_frozen: return # frozen enemies don't get knocked back as easily, or maybe they do?

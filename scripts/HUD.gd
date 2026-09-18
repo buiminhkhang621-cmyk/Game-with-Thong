@@ -122,15 +122,21 @@ func _ready() -> void:
 var runes_display: Control = null
 var shield_display: Control = null
 
-func _process(_delta: float) -> void:
+var _hud_redraw_timer: float = 0.0
+
+func _process(delta: float) -> void:
 	if fps_label:
 		fps_label.visible = GameManager.setting_show_fps
 		if fps_label.visible:
 			fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
-	if runes_display:
-		runes_display.queue_redraw()
-	if shield_display:
-		shield_display.queue_redraw()
+	# Throttle custom control redraws to 4x/sec instead of every frame
+	_hud_redraw_timer -= delta
+	if _hud_redraw_timer <= 0.0:
+		_hud_redraw_timer = 0.25
+		if runes_display:
+			runes_display.queue_redraw()
+		if shield_display:
+			shield_display.queue_redraw()
 
 
 var damage_flash_rect: ColorRect = null
