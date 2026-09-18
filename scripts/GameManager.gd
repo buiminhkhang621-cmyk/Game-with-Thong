@@ -127,18 +127,23 @@ var available_passive_skills: Array = [
 	load("res://resources/passives/crit_chance_up.tres"),
 ]
 
-var combo_damage: float = 0.0
-var combo_hits: int = 0
-var combo_timer: float = 0.0
-var combo_duration: float = 0.0
-const COMBO_TIMEOUT: float = 0.9
-const MAX_COMBO_DURATION: float = 3.5
+var current_combo_hits: int = 0
+var current_combo_dmg: float = 0.0
+var _combo_decay_timer: float = 0.0
+const COMBO_TIMEOUT: float = 1.8 # Combo window: resets 1.8s after last hit
 
-func add_combo_damage(amount: float) -> void:
-	combo_damage += amount
-	combo_hits += 1
-	combo_timer = COMBO_TIMEOUT
-	combo_updated.emit(combo_damage, combo_hits)
+func register_hit(dmg: float) -> void:
+	current_combo_hits += 1
+	current_combo_dmg += dmg
+	_combo_decay_timer = COMBO_TIMEOUT
+	combo_updated.emit(current_combo_dmg, current_combo_hits)
+
+func reset_combo() -> void:
+	if current_combo_hits > 0 or current_combo_dmg > 0.0 or _combo_decay_timer > 0.0:
+		current_combo_hits = 0
+		current_combo_dmg = 0.0
+		_combo_decay_timer = 0.0
+		combo_reset.emit()
 
 
 func _process(delta: float) -> void:
@@ -152,15 +157,10 @@ func _process(delta: float) -> void:
 	if active_curses.size() > 0:
 		_check_quest("curse_time", run_time)
 		
-	if combo_timer > 0:
-		combo_timer -= delta
-		combo_duration += delta
-		if combo_timer <= 0 or combo_duration >= MAX_COMBO_DURATION:
-			combo_damage = 0.0
-			combo_hits = 0
-			combo_timer = 0.0
-			combo_duration = 0.0
-			combo_reset.emit()
+	if _combo_decay_timer > 0.0:
+		_combo_decay_timer -= delta
+		if _combo_decay_timer <= 0.0:
+			reset_combo()
 			
 	if Engine.time_scale < 1.0:
 		Engine.time_scale = move_toward(Engine.time_scale, 1.0, delta * 2.0)
@@ -257,15 +257,7 @@ var current_class: String = ""
 var current_map_tier: int = 1
 var selected_skin: String = "default"
 
-var current_combo_hits: int = 0
-var current_combo_dmg: float = 0.0
-var _combo_decay_timer: float = 0.0
 
-func register_hit(dmg: float) -> void:
-	current_combo_hits += 1
-	current_combo_dmg += dmg
-	_combo_decay_timer = 2.5
-	combo_updated.emit(current_combo_dmg, current_combo_hits)
 
 func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	stop_all_audio()
@@ -293,6 +285,7 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	is_blood_sacrifice = false
 	is_abyssal_fog = false
 	active_relics.clear()
+	reset_combo()
 	
 	if player:
 		player.hp = player.base_max_hp
@@ -383,6 +376,7 @@ func on_player_died() -> void:
 	weapons_disabled = false
 	is_blood_sacrifice = false
 	is_abyssal_fog = false
+	reset_combo()
 	stop_all_audio()
 	if get_tree():
 		get_tree().paused = true

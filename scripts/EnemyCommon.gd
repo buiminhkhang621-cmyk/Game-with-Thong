@@ -699,15 +699,6 @@ func take_damage(amount: float) -> void:
 	
 	hp -= final_dmg
 	
-	# Floating damage numbers
-	if GameManager.setting_damage_numbers:
-		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-		var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
-		if target_parent:
-			target_parent.add_child(dn)
-			dn.global_position = global_position + Vector2(randf_range(-10, 10), randf_range(-15, 0))
-			dn.setup(final_dmg, randf() < GameManager.passive_value("crit"), color)
-	
 	# Combo system hit
 	GameManager.register_hit(final_dmg)
 	

@@ -187,14 +187,17 @@ func _on_combo_updated(total_damage: float, hits: int) -> void:
 		return
 	combo_label.modulate.a = 1.0
 	combo_label.show()
-	combo_label.text = "%d Hits!\n%.1f Dmg" % [hits, total_damage]
+	if total_damage >= 10000.0:
+		combo_label.text = "%d Hits!\n%.1fk Dmg" % [hits, total_damage / 1000.0]
+	else:
+		combo_label.text = "%d Hits!\n%d Dmg" % [hits, int(total_damage)]
 	
-	# Animate bounce
+	# Smooth subtle punch animation
 	if combo_tween:
 		combo_tween.kill()
 	combo_tween = create_tween()
-	combo_label.scale = Vector2(1.5, 1.5)
-	combo_tween.tween_property(combo_label, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_SPRING).set_ease(Tween.EASE_OUT)
+	combo_label.scale = Vector2(1.15, 1.15)
+	combo_tween.tween_property(combo_label, "scale", Vector2.ONE, 0.12).set_ease(Tween.EASE_OUT)
 
 
 func _on_combo_reset() -> void:
@@ -202,10 +205,11 @@ func _on_combo_reset() -> void:
 		if combo_tween:
 			combo_tween.kill()
 		combo_tween = get_tree().create_tween()
-		combo_tween.tween_property(combo_label, "modulate:a", 0.0, 0.5)
+		combo_tween.tween_property(combo_label, "modulate:a", 0.0, 0.4)
 		combo_tween.tween_callback(func():
 			combo_label.hide()
 			combo_label.modulate.a = 1.0
+			combo_label.scale = Vector2.ONE
 		)
 
 var blood_moon_rect: ColorRect = null
