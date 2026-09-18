@@ -15,6 +15,8 @@ var _dark_state_timer: float = 0.0
 var in_dark_state: bool = false
 var _dark_state_duration: float = 0.0
 
+var external_force: Vector2 = Vector2.ZERO
+
 var z_height: float = 0.0
 var z_velocity: float = 0.0
 const GRAVITY: float = 800.0
@@ -38,8 +40,21 @@ func _ready() -> void:
 	GameManager.register_player(self)
 	GameManager.level_changed.connect(_on_level_changed)
 	
-	if sprite:
-		sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	apply_skin(GameManager.selected_skin)
+
+func apply_skin(skin_id: String) -> void:
+	if not sprite:
+		sprite = get_node_or_null("Sprite2D")
+	if not sprite:
+		return
+	sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	var frames_path = "res://Sprite/Player/PlayerFrames.tres"
+	if skin_id == "purple_mage":
+		frames_path = "res://Sprite/Player/PurpleMage/PurpleMageFrames.tres"
+	var sf = load(frames_path)
+	if sf:
+		sprite.sprite_frames = sf
+		sprite.play("idle")
 
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
@@ -65,7 +80,6 @@ var _landing_i_frames: float = 0.0
 var _hurt_timer: float = 0.0
 var _ice_aura_timer: float = 0.0
 var _damage_i_frames: float = 0.0
-var _void_fall_cooldown: float = 0.0
 var _bg_ref: Node2D = null
 
 func _get_bg() -> Node2D:
@@ -88,9 +102,6 @@ func _physics_process(delta: float) -> void:
 	if _damage_i_frames > 0.0:
 		_damage_i_frames -= delta
 
-	if _void_fall_cooldown > 0.0:
-		_void_fall_cooldown -= delta
-	
 	if GameManager.current_class == "berserker":
 		_berserker_time += delta
 		if _berserker_time >= 1.5:
@@ -106,15 +117,12 @@ func _physics_process(delta: float) -> void:
 			_apply_landing_knockback()
 			_landing_i_frames = 0.25 # Invulnerable to ground attacks while enemies are pushed back
 
-	# NEVER disable layer 1 (Walls and Abyss boundary) - player cannot phase through dungeon walls or leap into the void!
+	# Maintain Layer 1 collision (Walls and Abyss boundary)
 	set_collision_mask_value(1, true)
 	if z_height > 15.0:
 		z_index = 10
 	else:
 		z_index = 0
-		
-	# Check if player stepped or landed into the abyss void
-	_check_void_fall()
 
 	# Ice Resonance Aura
 	if GameManager.has_rune_resonance("ice"):
@@ -185,30 +193,21 @@ func _physics_process(delta: float) -> void:
 	if dir.length() > 0.0:
 		dir = dir.normalized()
 
-	var speed_mult := move_speed * (1.0 + GameManager.passive_value("movespeed"))
+	var speed_mult: float = move_speed * (1.0 + GameManager.passive_value("movespeed"))
 	if in_dark_state:
 		speed_mult *= 1.5
 	if GameManager.weapons_disabled:
 		speed_mult *= 1.5 # +50% speed during silence trial!
 		
-	velocity = dir * speed_mult
+	velocity = dir * speed_mult + external_force
 	move_and_slide()
+	external_force = external_force.move_toward(Vector2.ZERO, 350.0 * delta)
 
-	# Jump logic: strictly prohibited if heading into the pitch-black abyss!
+	# Jump logic: layer 1 collision barrier stops player from jumping into the void
 	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0 and _jump_cooldown <= 0.0:
-		var bg = _get_bg()
-		var can_jump_here = true
-		if bg and bg.has_method("is_walkable_tile"):
-			var jump_check_dist = 40.0
-			var intended_target = global_position + (dir if dir.length() > 0.1 else Vector2.ZERO) * jump_check_dist
-			if not bg.is_walkable_tile(intended_target) or not bg.is_walkable_tile(global_position):
-				can_jump_here = false
-				_show_void_warning("ABYSS EDGE! CANNOT JUMP")
-				
-		if can_jump_here:
-			z_velocity = JUMP_FORCE
-			_jump_cooldown = 0.8
-			_shake_intensity = 4.0
+		z_velocity = JUMP_FORCE
+		_jump_cooldown = 0.8
+		_shake_intensity = 4.0
 		
 	if _hurt_timer > 0.0:
 		_hurt_timer -= delta
@@ -232,53 +231,7 @@ func _physics_process(delta: float) -> void:
 			
 	_update_sprite_visuals()
 
-func _check_void_fall() -> void:
-	if GameManager.game_over or in_dark_state or god_mode:
-		return
-	if _void_fall_cooldown > 0.0:
-		return
-	var bg = _get_bg()
-	if bg and bg.has_method("is_walkable_tile"):
-		if not bg.is_walkable_tile(global_position):
-			_trigger_void_fall()
 
-func _trigger_void_fall() -> void:
-	_void_fall_cooldown = 1.5
-	_shake_intensity = 35.0
-	
-	# Massive 40% Max HP Abyss Fall damage!
-	var void_dmg = max(25.0, _effective_max_hp * 0.40)
-	take_damage(void_dmg, false)
-	_damage_i_frames = 1.2
-	
-	# Void singularity burst effect
-	var vr = VoidRiftEffect.new()
-	get_tree().current_scene.add_child(vr)
-	vr.setup_eradication(global_position)
-	
-	# Teleport/push back immediately to closest verified walkable stone floor!
-	var bg = _get_bg()
-	if bg and bg.has_method("get_closest_valid_floor_pos"):
-		global_position = bg.get_closest_valid_floor_pos(global_position)
-	velocity = Vector2.ZERO
-	z_height = 0.0
-	z_velocity = 0.0
-	
-	# Popup warning text
-	var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-	get_tree().current_scene.add_child(dn)
-	dn.global_position = global_position + Vector2(0, -25)
-	dn.setup(void_dmg, true, Color(0.85, 0.2, 1.0))
-	if dn.has_node("Label"):
-		dn.get_node("Label").text = "ABYSS FALL! -" + str(int(void_dmg))
-
-func _show_void_warning(msg: String) -> void:
-	var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-	get_tree().current_scene.add_child(dn)
-	dn.global_position = global_position + Vector2(0, -20)
-	dn.setup(0, true, Color(1.0, 0.35, 0.35))
-	if dn.has_node("Label"):
-		dn.get_node("Label").text = msg
 
 
 func _update_sprite_visuals() -> void:
@@ -321,7 +274,12 @@ func _apply_landing_knockback() -> void:
 	if is_silence:
 		_shake_intensity = 15.0
 	
-	for e in GameManager.active_enemies:
+	# Spawn landing shockwave burst visual
+	var fx = ElementalVisualEffect.new()
+	get_tree().current_scene.add_child(fx)
+	fx.setup_elemental_burst(global_position, "ice" if is_silence else "lightning")
+	
+	for e in GameManager.active_enemies.duplicate():
 		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		if e.has_method("apply_knockback"):
 			var r = hit_radius + e.hit_radius + extra_r
@@ -377,17 +335,23 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 		var tween = get_tree().create_tween()
 		tween.tween_property(sprite, "modulate", Color.WHITE, 0.15)
 	
-	if dmg >= 1.0:
+	if dmg >= 1.0 and GameManager.setting_damage_numbers:
 		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-		get_tree().current_scene.add_child(dn)
-		dn.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 0))
-		dn.setup(dmg, false, Color(1.0, 0.4, 0.4))
+		var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+		if target_parent:
+			target_parent.add_child(dn)
+			dn.global_position = global_position + Vector2(randf_range(-15, 15), randf_range(-15, 0))
+			dn.setup(dmg, false, Color(1.0, 0.4, 0.4))
 	
 	GameManager.hp_changed.emit(hp, _effective_max_hp)
 	
 	if hp <= 0.0:
 		hp = 0.0
-		GameManager.player_died.emit()
+		if sprite:
+			sprite.pause()
+		set_physics_process(false)
+		set_process(false)
+		GameManager.on_player_died()
 
 
 func heal(amount: float) -> void:

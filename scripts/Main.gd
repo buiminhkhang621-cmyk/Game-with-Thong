@@ -3,14 +3,34 @@ extends Node2D
 var current_ui: Node = null
 
 func _ready() -> void:
-	$DevPanel.hide()
+	if has_node("DevPanel"):
+		$DevPanel.hide()
 	y_sort_enabled = true
-	# Hide player/gameplay initially
-	get_tree().paused = true
-	_show_main_menu()
+	
+	if GameManager.restart_run_on_ready:
+		GameManager.restart_run_on_ready = false
+		start_game(GameManager.current_class, GameManager.current_map_tier)
+	else:
+		get_tree().paused = true
+		_show_main_menu()
 
 func _show_main_menu() -> void:
 	if current_ui: current_ui.queue_free()
+	GameManager.stop_all_audio()
+	get_tree().paused = true
+	if has_node("HUD"):
+		$HUD.hide()
+	if has_node("DevPanel"):
+		$DevPanel.hide()
+	if has_node("GameOverScreen"):
+		$GameOverScreen.hide()
+	if has_node("LevelUpScreen"):
+		$LevelUpScreen.hide()
+		
+	# Clean up any remaining entities from previous runs
+	for group in ["enemies", "projectiles", "enemy_projectiles", "xp_orbs", "damage_numbers", "temporary_effects", "event_entities"]:
+		for node in get_tree().get_nodes_in_group(group):
+			node.queue_free()
 	
 	var script = load("res://scripts/MainMenuUI.gd")
 	if script:
@@ -62,9 +82,14 @@ func start_game(class_id: String, map_tier: int) -> void:
 	if current_ui: current_ui.queue_free()
 	current_ui = null
 	
+	if has_node("HUD"):
+		$HUD.show()
 	if has_node("DevPanel"):
 		$DevPanel.show()
 	
+	if has_node("EnemySpawner"):
+		$EnemySpawner.reset_spawner()
+		
 	GameManager.start_run_with_class_and_map(class_id, map_tier)
 
 var pause_menu_instance: Node = null

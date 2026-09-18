@@ -23,6 +23,14 @@ func _ready() -> void:
 	title.position.y = 40
 	root.add_child(title)
 	
+	var back_btn = Button.new()
+	back_btn.text = "⮌ BACK"
+	back_btn.custom_minimum_size = Vector2(120, 38)
+	UITheme.apply_button_theme(back_btn)
+	back_btn.position = Vector2(40, 38)
+	back_btn.pressed.connect(_on_back_pressed)
+	root.add_child(back_btn)
+	
 	var center_container = CenterContainer.new()
 	center_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(center_container)
@@ -67,5 +75,15 @@ func _add_map_card(parent: Control, title: String, desc: String, tier: int, c: C
 
 func _on_map_selected(tier: int) -> void:
 	var main = get_tree().current_scene
-	if main.has_method("start_game"):
+	if main and main.has_method("start_game"):
 		main.start_game(selected_class, tier)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		_on_back_pressed()
+
+func _on_back_pressed() -> void:
+	var main = get_tree().current_scene
+	if main and main.has_method("_show_class_selection"):
+		main._show_class_selection()
+		queue_free()

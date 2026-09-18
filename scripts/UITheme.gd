@@ -3,68 +3,98 @@ extends RefCounted
 
 # Ancient Dark Fantasy & Obsidian Pixel Art Theme
 
-static func create_stone_panel() -> StyleBoxFlat:
+static func create_stone_panel() -> StyleBox:
+	var tex = load_texture("res://Sprite/Main Screen/stone_panel_frame.png")
+	if tex:
+		var sbt = StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.texture_margin_left = 16
+		sbt.texture_margin_right = 16
+		sbt.texture_margin_top = 16
+		sbt.texture_margin_bottom = 16
+		sbt.content_margin_left = 22
+		sbt.content_margin_right = 22
+		sbt.content_margin_top = 26
+		sbt.content_margin_bottom = 26
+		return sbt
 	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.04, 0.07, 0.96) # Deep Obsidian Void
+	sb.bg_color = Color(0.05, 0.04, 0.07, 0.96)
 	sb.border_width_left = 3
 	sb.border_width_top = 3
 	sb.border_width_right = 3
 	sb.border_width_bottom = 4
-	sb.border_color = Color(0.55, 0.42, 0.24) # Weathered Antique Bronze / Gold
+	sb.border_color = Color(0.55, 0.42, 0.24)
 	sb.corner_radius_top_left = 4
 	sb.corner_radius_top_right = 4
 	sb.corner_radius_bottom_right = 4
 	sb.corner_radius_bottom_left = 4
-	sb.shadow_size = 14
-	sb.shadow_color = Color(0.03, 0.0, 0.05, 0.85)
-	sb.shadow_offset = Vector2(0, 5)
 	return sb
 
-static func create_stone_button_normal() -> StyleBoxFlat:
+static func create_stone_button_normal() -> StyleBox:
+	var tex = load_texture("res://Sprite/Main Screen/stone_button_normal.png")
+	if tex:
+		var sbt = StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.texture_margin_left = 12
+		sbt.texture_margin_right = 12
+		sbt.texture_margin_top = 10
+		sbt.texture_margin_bottom = 10
+		sbt.content_margin_left = 16
+		sbt.content_margin_right = 16
+		sbt.content_margin_top = 10
+		sbt.content_margin_bottom = 10
+		return sbt
 	var sb = StyleBoxFlat.new()
 	sb.bg_color = Color(0.09, 0.08, 0.12, 0.95)
 	sb.border_width_left = 2
 	sb.border_width_top = 2
 	sb.border_width_right = 2
 	sb.border_width_bottom = 3
-	sb.border_color = Color(0.45, 0.36, 0.22) # Weathered Dark Bronze
+	sb.border_color = Color(0.45, 0.36, 0.22)
 	sb.corner_radius_top_left = 4
 	sb.corner_radius_top_right = 4
 	sb.corner_radius_bottom_right = 4
 	sb.corner_radius_bottom_left = 4
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	sb.shadow_size = 6
-	sb.shadow_color = Color(0, 0, 0, 0.6)
 	return sb
 
-static func create_stone_button_hover() -> StyleBoxFlat:
-	var sb = create_stone_button_normal()
+static func create_stone_button_hover() -> StyleBox:
+	var tex = load_texture("res://Sprite/Main Screen/stone_button_hover.png")
+	if tex:
+		var sbt = StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.texture_margin_left = 12
+		sbt.texture_margin_right = 12
+		sbt.texture_margin_top = 10
+		sbt.texture_margin_bottom = 10
+		sbt.content_margin_left = 16
+		sbt.content_margin_right = 16
+		sbt.content_margin_top = 10
+		sbt.content_margin_bottom = 10
+		return sbt
+	var sb = StyleBoxFlat.new()
 	sb.bg_color = Color(0.16, 0.14, 0.21, 1.0)
-	sb.border_color = Color(0.95, 0.78, 0.35) # Gleaming Ancient Gold
-	sb.shadow_size = 10
-	sb.shadow_color = Color(0.85, 0.55, 0.15, 0.4) # Golden Runic Glow
+	sb.border_color = Color(0.95, 0.78, 0.35)
 	return sb
 
-static func create_stone_button_pressed() -> StyleBoxFlat:
+static func create_stone_button_pressed() -> StyleBox:
+	var tex = load_texture("res://Sprite/Main Screen/stone_button_pressed.png")
+	if tex:
+		var sbt = StyleBoxTexture.new()
+		sbt.texture = tex
+		sbt.texture_margin_left = 12
+		sbt.texture_margin_right = 12
+		sbt.texture_margin_top = 10
+		sbt.texture_margin_bottom = 10
+		sbt.content_margin_left = 16
+		sbt.content_margin_right = 16
+		sbt.content_margin_top = 12
+		sbt.content_margin_bottom = 8
+		return sbt
 	var sb = StyleBoxFlat.new()
 	sb.bg_color = Color(0.05, 0.04, 0.07, 1.0)
-	sb.border_width_left = 2
-	sb.border_width_top = 3
-	sb.border_width_right = 2
-	sb.border_width_bottom = 2
 	sb.border_color = Color(0.35, 0.28, 0.16)
-	sb.corner_radius_top_left = 4
-	sb.corner_radius_top_right = 4
-	sb.corner_radius_bottom_right = 4
-	sb.corner_radius_bottom_left = 4
-	sb.content_margin_left = 16
-	sb.content_margin_right = 16
-	sb.content_margin_top = 10
-	sb.content_margin_bottom = 6
 	return sb
+
 
 static func apply_button_theme(btn: Button) -> void:
 	btn.add_theme_stylebox_override("normal", create_stone_button_normal())

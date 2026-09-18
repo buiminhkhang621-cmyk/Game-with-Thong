@@ -16,7 +16,29 @@ var _frame_enemies: Array = []
 
 const PROJECTILE_SCENE := preload("res://scenes/Projectile.tscn")
 
+static var _knife_tex: Texture2D = null
+static var _magic_ball_tex: Texture2D = null
+
+static func _get_knife_texture() -> Texture2D:
+	if _knife_tex == null:
+		_knife_tex = UITheme.load_texture("res://Sprite/weapon/knife.png")
+	return _knife_tex
+
+static func _get_magic_ball_texture() -> Texture2D:
+	if _magic_ball_tex == null:
+		_magic_ball_tex = UITheme.load_texture("res://Sprite/weapon/Magic-ball.png")
+	return _magic_ball_tex
+
+var _spin_angle: float = 0.0
+var _orbs_spin_angle: float = 0.0
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
 func _process(delta: float) -> void:
+	_spin_angle += delta * 3.4
+	_orbs_spin_angle += delta * 2.0
+
 	var keep = []
 	for v in _whip_visuals:
 		v.time -= delta
@@ -41,6 +63,8 @@ func _process(delta: float) -> void:
 					_fire_orbit(s, data, level)
 				"projectile":
 					_fire_projectile(s, data, level)
+				"throwing_knife":
+					_fire_throwing_knife(s, data, level)
 				"nova":
 					_fire_nova(s, data, level)
 				"aoe":
@@ -116,6 +140,7 @@ func _blade_count(level: int) -> int:
 
 
 func _fire_orbit(s_dict: Dictionary, data: SkillData, level: int) -> void:
+	if not player: return
 	var count := _blade_count(level)
 	var radius: float = data.base_radius + data.radius_per_level * level
 	var dmg: float = (data.base_damage + data.damage_per_level * level) * (1.0 + GameManager.passive_value("damage"))
@@ -124,28 +149,38 @@ func _fire_orbit(s_dict: Dictionary, data: SkillData, level: int) -> void:
 		dmg *= 1.2
 		
 	var t := Time.get_ticks_msec() / 1000.0
-	var spin := t * 3.4
+	var spin := _spin_angle # Exactly synchronized with visual _spin_angle in _draw()!
 
 	var blade_positions = []
 	for i in range(count):
 		var ang: float = spin + TAU / count * i
 		blade_positions.append(player.global_position + Vector2(cos(ang), sin(ang)) * radius)
 
+	var blade_hit_radius = 28.0
 	for enemy in _frame_enemies:
+		if not is_instance_valid(enemy) or enemy.is_queued_for_deletion(): continue
+		if "hp" in enemy and enemy.hp <= 0: continue
+		if "is_dying" in enemy and enemy.is_dying: continue
+
 		var key: String = data.id + "_" + str(enemy.get_instance_id())
 		var last: float = _hit_cooldowns.get(key, 0.0)
-		if t - last < 0.45:
+		if t - last < 0.35:
 			continue
 			
-		var r_sq = (10.0 + enemy.hit_radius) * (10.0 + enemy.hit_radius)
+		var enemy_r = enemy.hit_radius if "hit_radius" in enemy else 12.0
+		var r_total = blade_hit_radius + enemy_r
+		var r_sq = r_total * r_total
 		for pos in blade_positions:
-			if pos.distance_squared_to(enemy.global_position) < r_sq:
+			if pos.distance_squared_to(enemy.global_position) <= r_sq:
 				_hit_cooldowns[key] = t
-				enemy.take_damage(dmg)
 				if s_dict.has("runes"):
 					for r in s_dict.runes:
 						if r != "damage" and enemy.has_method("apply_element"):
 							enemy.apply_element(r, dmg * 0.5)
+				enemy.take_damage(dmg)
+				if enemy.has_method("apply_knockback"):
+					var kb_dir = (enemy.global_position - player.global_position).normalized()
+					enemy.apply_knockback(kb_dir, 80.0)
 				break
 
 
@@ -247,6 +282,44 @@ func _fire_throwing_axe(s_dict: Dictionary, data: SkillData, level: int) -> void
 	
 	axe_empowered = false # Reset after throw
 
+func _fire_throwing_knife(s_dict: Dictionary, data: SkillData, level: int) -> void:
+	var t := Time.get_ticks_msec() / 1000.0
+	var cd: float = max(0.25, data.base_cooldown - level * 0.05) * (1.0 - GameManager.passive_value("cooldown"))
+	var last: float = _last_fire_time.get(data.id, 0.0)
+	if t - last < cd:
+		return
+		
+	var target = _find_nearest_enemy()
+	var base_dir = Vector2.RIGHT
+	if target:
+		base_dir = (target.global_position - player.global_position).normalized()
+	elif player.velocity.length() > 5.0:
+		base_dir = player.velocity.normalized()
+	elif player.sprite and player.sprite.flip_h:
+		base_dir = Vector2.LEFT
+		
+	_last_fire_time[data.id] = t
+
+	var dmg: float = (data.base_damage + data.damage_per_level * level) * (1.0 + GameManager.passive_value("damage"))
+	if s_dict.has("runes") and s_dict.runes.has("damage"):
+		dmg *= 1.25
+
+	var count = 1 + int(level / 2.0)
+	var pierce = 1 + int(level / 3.0)
+	var r = s_dict.runes if s_dict.has("runes") else []
+	var is_crit = randf() < (0.25 + GameManager.passive_value("crit_chance"))
+	
+	var spread_angle = deg_to_rad(9.0)
+	var start_offset = -((count - 1) * spread_angle) * 0.5
+	
+	for i in range(count):
+		var dir = base_dir.rotated(start_offset + i * spread_angle)
+		var knife = Node2D.new()
+		knife.set_script(load("res://scripts/ThrowingKnife.gd"))
+		get_tree().current_scene.add_child(knife)
+		knife.global_position = player.global_position + dir * 12.0
+		knife.setup(dir * data.projectile_speed, dmg, is_crit, pierce, r)
+
 func _fire_elemental_orbs(s_dict: Dictionary, data: SkillData, level: int) -> void:
 	var count = 1 + int(level / 2.0)
 	var radius: float = data.base_radius
@@ -264,7 +337,7 @@ func _fire_elemental_orbs(s_dict: Dictionary, data: SkillData, level: int) -> vo
 				dmg *= 1.2
 			
 			for i in range(count):
-				var ang: float = (t * 2.0) + TAU / count * i
+				var ang: float = _orbs_spin_angle + TAU / count * i
 				var pos: Vector2 = player.global_position + Vector2(cos(ang), sin(ang)) * radius
 				var dir: Vector2 = (target.global_position - pos).normalized()
 				
@@ -304,14 +377,14 @@ func _fire_whip(s_dict: Dictionary, data: SkillData, level: int) -> void:
 			var to_enemy = (enemy.global_position - player.global_position).normalized()
 			var angle_diff = abs(angle_difference(center_angle, to_enemy.angle()))
 			if angle_diff <= sweep_angle / 2.0:
-				enemy.take_damage(dmg)
-				if enemy.has_method("apply_knockback"):
-					enemy.apply_knockback(to_enemy, 150.0)
-					
 				if s_dict.has("runes"):
 					for r in s_dict.runes:
 						if r != "damage" and enemy.has_method("apply_element"):
 							enemy.apply_element(r, dmg * 0.5)
+							
+				enemy.take_damage(dmg)
+				if enemy.has_method("apply_knockback"):
+					enemy.apply_knockback(to_enemy, 150.0)
 							
 	_whip_visuals.append({
 		"center": center_angle,
@@ -372,8 +445,23 @@ func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 		else:
 			break
 			
+	# Spawn stunning elemental lightning visual effect for each jump segment
+	var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+	if target_parent and path.size() >= 2:
+		for j in range(path.size() - 1):
+			var fx = ElementalVisualEffect.new()
+			target_parent.add_child(fx)
+			fx.setup_lightning(path[j], path[j+1], j)
+			
+	# Play high voltage lightning audio
+	GameManager.play_sfx(GameManager.sfx_electric_shock, randf_range(0.95, 1.15))
+	
+	# Subtle screen shake
+	if player and GameManager.setting_screen_shake:
+		player._shake_intensity = max(player._shake_intensity, 4.0)
+
 	# Store for drawing
-	_lightning_visuals.append({"path": path, "time": 0.2, "color": data.color})
+	_lightning_visuals.append({"path": path, "time": 0.25, "color": data.color})
 
 func _fire_earthquake(_s: Dictionary, data: SkillData, level: int) -> void:
 	var last: float = _last_fire_time.get(data.id, 0.0)
@@ -406,11 +494,25 @@ func _draw() -> void:
 			var level: int = s.level
 			var count := _blade_count(level)
 			var radius: float = data.base_radius + data.radius_per_level * level
-			var spin := Time.get_ticks_msec() / 1000.0 * 3.4
+			var spin := _spin_angle
+			var k_tex = _get_knife_texture()
+			var k_size = (k_tex.get_size() * 0.35) if k_tex else Vector2(14, 17)
 			for i in range(count):
 				var ang: float = spin + TAU / count * i
 				var local_pos: Vector2 = Vector2(cos(ang), sin(ang)) * radius
-				draw_circle(local_pos, 10.0, data.color)
+				var blade_angle = ang + deg_to_rad(52.3) # Radial outward knife tip orientation
+				
+				# Glowing motion slash trail behind the knife
+				var trail_ang = ang - 0.20
+				var trail_pos = Vector2(cos(trail_ang), sin(trail_ang)) * radius
+				draw_line(trail_pos, local_pos, Color(data.color.r, data.color.g, data.color.b, 0.4), 1.8)
+				
+				if k_tex:
+					draw_set_transform(local_pos, blade_angle, Vector2.ONE)
+					draw_texture_rect(k_tex, Rect2(-k_size * 0.5, k_size), false, data.color)
+					draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
+				else:
+					draw_circle(local_pos, 14.0, data.color)
 
 		elif data.skill_type == "aoe":
 			var level: int = s.level
@@ -434,11 +536,30 @@ func _draw() -> void:
 			var level: int = s.level
 			var count = 1 + int(level / 2.0)
 			var radius: float = data.base_radius
-			var spin := Time.get_ticks_msec() / 1000.0 * 2.0
+			var spin := _orbs_spin_angle
+			var b_tex = _get_magic_ball_texture()
+			var b_size = b_tex.get_size() * 0.7 if b_tex else Vector2(22, 23)
+			var element_colors = [
+				Color(1.0, 0.95, 0.25), # Lightning
+				Color(0.3, 0.8, 1.0),   # Ice
+				Color(0.8, 0.25, 0.95), # Void
+				Color(1.0, 0.35, 0.1)   # Fire
+			]
 			for i in range(count):
 				var ang: float = spin + TAU / count * i
 				var local_pos: Vector2 = Vector2(cos(ang), sin(ang)) * radius
-				draw_circle(local_pos, 8.0, data.color)
+				var col = element_colors[i % element_colors.size()]
+				
+				# Elemental orbit trail
+				draw_arc(Vector2.ZERO, radius, ang - 0.25, ang, 8, Color(col.r, col.g, col.b, 0.35), 2.0)
+				
+				if b_tex:
+					# Soft glow behind
+					draw_circle(local_pos, 10.0, Color(col.r, col.g, col.b, 0.25))
+					draw_texture_rect(b_tex, Rect2(local_pos - b_size * 0.5, b_size), false, col)
+				else:
+					draw_circle(local_pos, 8.0, col)
+
 				
 	for v in _whip_visuals:
 		var start_ang = v.center - v.sweep / 2.0
@@ -450,4 +571,6 @@ func _draw() -> void:
 		for p in v.path:
 			local_path.append(p - global_position)
 		if local_path.size() >= 2:
-			draw_polyline(local_path, v.color, 3.0)
+			draw_polyline(local_path, Color(0.2, 0.8, 1.0, 0.45), 7.0)
+			draw_polyline(local_path, v.color, 3.5)
+			draw_polyline(local_path, Color.WHITE, 1.5)

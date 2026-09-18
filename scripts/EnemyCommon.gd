@@ -17,6 +17,9 @@ var _burn_time: float = 0.0
 var _burn_dps: float = 0.0
 
 var _void_proc_cooldown: float = 0.0
+var is_void_infected: bool = false
+var void_infection_timer: float = 0.0
+var void_infected_dmg: float = 0.0
 var ice_slow_time: float = 0.0
 var is_frozen: bool = false
 
@@ -31,6 +34,7 @@ var knockback_time: float = 0.0
 
 var enemy_type: String = "normal"
 var armor: float = 0.0
+
 var evolution_tier: int = 0
 var sniper_cooldown: float = 0.0
 var bomber_fuse: float = -1.0
@@ -118,6 +122,15 @@ func setup_type(type: String) -> void:
 			armor = 0.45
 			summon_cooldown = randf_range(1.8, 2.8)
 			mega_summon_timer = randf_range(16.0, 22.0)
+		"golden_goblin":
+			speed *= 1.75
+			max_hp *= 3.5
+			contact_dps = 0.0 # Harmless treasure creature
+			armor = 0.15
+			xp_value = 100
+			color = Color(1.0, 0.85, 0.1)
+			if sprite:
+				sprite.modulate = Color(1.0, 0.9, 0.2)
 		_:
 			armor = 0.22 # Base 22% Armor for normal
 			speed *= 1.15
@@ -231,21 +244,14 @@ func _exit_tree() -> void:
 func _physics_process(delta: float) -> void:
 	if GameManager.game_over or GameManager.paused_for_levelup:
 		return
-	var player = GameManager.player
-	if player == null or is_dying:
+	if is_dying:
 		return
 
 	if _contact_cooldown > 0:
 		_contact_cooldown -= delta
 
-	# Void Abyss Plunge check: Enemies falling or knocked into the dark void plunge and die!
-	var bg = _get_bg()
-	if bg and bg.has_method("is_walkable_tile"):
-		if not bg.is_walkable_tile(global_position):
-			_die_in_abyss()
-			return
-
 	# Handle status effect timers
+
 	if _is_flashing:
 		_flash_timer -= delta
 		if _flash_timer <= 0:
@@ -262,9 +268,22 @@ func _physics_process(delta: float) -> void:
 	
 	if _void_proc_cooldown > 0:
 		_void_proc_cooldown -= delta
+	
+	# Void Infection 1.5s countdown before collapse & 90%/10% split
+	if is_void_infected and not is_dying:
+		void_infection_timer -= delta
+		queue_redraw()
+		if void_infection_timer <= 0.0:
+			_trigger_void_collapse()
+			if is_dying:
+				return
 			
 	if reaction_cooldown > 0:
 		reaction_cooldown -= delta
+
+	var player = GameManager.player
+	if player == null:
+		return
 
 	var target_pos: Vector2 = player.global_position
 	var to_player: Vector2 = target_pos - global_position
@@ -275,6 +294,11 @@ func _physics_process(delta: float) -> void:
 		current_speed = 0.0
 	elif ice_slow_time > 0:
 		current_speed *= 0.6
+		
+	if GameManager.is_abyssal_fog:
+		current_speed *= 1.25
+	if GameManager.is_blood_moon:
+		current_speed *= 1.25
 		
 	var should_move = true
 	
@@ -537,11 +561,25 @@ func _physics_process(delta: float) -> void:
 		velocity = knockback_vel
 		knockback_vel = knockback_vel.lerp(Vector2.ZERO, delta * 5.0)
 	elif dist > 0.001 and current_speed > 0 and should_move:
-		velocity = (to_player / dist) * current_speed
+		var dir_to_player = to_player / dist
+		if enemy_type == "golden_goblin":
+			dir_to_player = -dir_to_player # Runs away from player!
+		# Flocking lateral dispersion: prevents single-file conga lines and fans out the horde!
+		var perp = Vector2(-dir_to_player.y, dir_to_player.x)
+		var lateral_offset = sin(float(get_instance_id() % 31) * 1.3 + wobble_time * 2.2) * 0.32
+		var move_dir = (dir_to_player + perp * lateral_offset).normalized()
+		velocity = move_dir * current_speed
 	else:
 		velocity = Vector2.ZERO
 		
 	move_and_slide()
+
+	# Soft repulsion when bumping into other enemies so horde spreads out naturally like liquid
+	for i in range(min(2, get_slide_collision_count())):
+		var col = get_slide_collision(i)
+		var collider = col.get_collider()
+		if collider and collider.is_in_group("enemies"):
+			velocity += col.get_normal() * (current_speed * 0.35)
 
 	# Update sprite direction and procedural animation
 	if sprite:
@@ -570,13 +608,18 @@ func _physics_process(delta: float) -> void:
 			
 	if not _is_flashing:
 		var target_color = _original_color
-		if ice_slow_time > 0:
+		if is_void_infected:
+			var pulse_val = (sin(Time.get_ticks_msec() / 1000.0 * 10.0) + 1.0) * 0.5
+			target_color = _original_color.lerp(Color(0.85, 0.25, 1.0), 0.5 + pulse_val * 0.35)
+		elif ice_slow_time > 0:
 			target_color = Color(0.3, 0.6, 1.0)
 		elif _burn_time > 0:
 			target_color = _original_color.lerp(Color(1.0, 0.4, 0.0), 0.5)
 		elif active_auras.has("dark"):
 			var drain_ratio = min(1.0, GameManager.stolen_dark_hp / 100.0)
 			target_color = _original_color.lerp(Color.BLACK, 0.3 + drain_ratio * 0.5)
+		elif GameManager.is_abyssal_fog:
+			target_color = _original_color.lerp(Color(0.45, 0.25, 0.65), 0.4)
 		
 		if color != target_color:
 			color = target_color
@@ -584,8 +627,8 @@ func _physics_process(delta: float) -> void:
 				sprite.modulate = color
 			queue_redraw()
 
-	var effective_enemy_r = max(8.0, hit_radius * 0.55)
-	var effective_player_r = 10.0
+	var effective_enemy_r = max(10.0, hit_radius * 0.75)
+	var effective_player_r = 12.0
 	var touch_r = effective_enemy_r + effective_player_r
 	var actual_dist_to_player: float = global_position.distance_squared_to(player.global_position)
 	if actual_dist_to_player < touch_r * touch_r and _contact_cooldown <= 0.0:
@@ -633,25 +676,17 @@ func _physics_process(delta: float) -> void:
 		if player is CharacterBody2D:
 			var push_dir = (player.global_position - global_position).normalized()
 			if push_dir.length() < 0.1: push_dir = Vector2.UP
-			player.velocity += push_dir * 180.0
-
-func _die_in_abyss() -> void:
-	if is_dying: return
-	is_dying = true
-	var p = DEATH_PARTICLE.instantiate()
-	if p:
-		p.position = global_position
-		p.modulate = Color(0.12, 0.05, 0.25)
-		p.scale = Vector2(2.8, 2.8)
-		get_tree().current_scene.add_child(p)
-	GameManager.register_kill()
-	queue_free()
+			if "external_force" in player:
+				player.external_force += push_dir * 160.0
+			else:
+				player.velocity += push_dir * 180.0
 
 func take_damage(amount: float) -> void:
 	if is_dying: return
 	
 	var eff_armor = clampf(armor, 0.0, 0.75)
 	var final_dmg = amount * (1.0 - eff_armor)
+
 	
 	# Critical hit deals x2 damage and pierces 50% of armor!
 	if randf() < GameManager.passive_value("crit"):
@@ -665,10 +700,13 @@ func take_damage(amount: float) -> void:
 	hp -= final_dmg
 	
 	# Floating damage numbers
-	var dn = load("res://scenes/DamageNumber.tscn").instantiate()
-	get_tree().current_scene.add_child(dn)
-	dn.global_position = global_position + Vector2(randf_range(-10, 10), randf_range(-15, 0))
-	dn.setup(final_dmg, randf() < GameManager.passive_value("crit"), color)
+	if GameManager.setting_damage_numbers:
+		var dn = load("res://scenes/DamageNumber.tscn").instantiate()
+		var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+		if target_parent:
+			target_parent.add_child(dn)
+			dn.global_position = global_position + Vector2(randf_range(-10, 10), randf_range(-15, 0))
+			dn.setup(final_dmg, randf() < GameManager.passive_value("crit"), color)
 	
 	# Combo system hit
 	GameManager.register_hit(final_dmg)
@@ -820,41 +858,57 @@ func apply_element(type: String, dmg: float) -> void:
 				GameManager.trigger_void_nuke()
 				return
 				
-			_proc_void_effect(dmg)
+			_infect_void(dmg)
 
-func _proc_void_effect(dmg: float) -> void:
+func _infect_void(dmg: float) -> void:
 	if is_dying or hp <= 0: return
 	
-	var has_prism = GameManager.active_relics.has("void_prism")
-	var instant_kill_chance = 0.35 if has_prism else 0.20
-	var split_count = 3 if has_prism else 2
-	
-	if randf() < instant_kill_chance:
-		# 20% / 35% Instant Singularity Collapse (Black Hole)
-		var rift = VoidRiftEffect.new()
-		get_tree().current_scene.add_child(rift)
-		rift.setup_eradication(global_position)
+	if not active_auras.has("void"):
+		active_auras.append("void")
+		_check_reactions(dmg)
 		
-		if enemy_type == "boss":
-			take_damage(max_hp * 0.20)
-		else:
-			take_damage(max_hp * 10.0)
+	if not is_void_infected:
+		is_void_infected = true
+		void_infection_timer = 1.5 # 1.5s delay between infection and collapse
+		void_infected_dmg = max(dmg, 20.0)
+		queue_redraw()
 	else:
-		# 80% / 65% Void Fission Spores
-		take_damage(dmg * 1.35)
-		
-		# Find nearby split targets
-		var targets = _get_nearest_enemies_except(self, split_count, 220.0)
+		void_infected_dmg = max(void_infected_dmg, dmg)
+
+func _trigger_void_collapse() -> void:
+	if not is_void_infected: return
+	is_void_infected = false
+	active_auras.erase("void")
+	
+	var has_prism = GameManager.active_relics.has("void_prism")
+	var split_count = 3 if has_prism else 2
+	var roll = randf()
+	
+	if roll < 0.90:
+		# 90% CHANCE: Chia ra 2 con xung quanh (auto-infects them on impact)
+		var targets = _get_nearest_enemies_except(self, split_count, 350.0)
 		for t in targets:
 			if is_instance_valid(t) and not t.is_queued_for_deletion():
 				var rift = VoidRiftEffect.new()
 				get_tree().current_scene.add_child(rift)
-				rift.setup_split(global_position, t.global_position)
-				
-				if t.has_method("take_damage"):
-					t.take_damage(dmg * 0.85)
-				if t.has_method("apply_element"):
-					t.apply_element("void", dmg * 0.5)
+				var pass_dmg = max(void_infected_dmg * 0.85, max_hp * 0.35)
+				rift.setup_split(global_position, t.global_position, t, pass_dmg)
+		
+		# Micro purple void burst impact fx at source
+		var fx = ElementalVisualEffect.new()
+		get_tree().current_scene.add_child(fx)
+		fx.setup_elemental_burst(global_position, "void")
+	else:
+		# 10% CHANCE: Biến mất hoàn toàn (Eradication into singularity void, 0 split)
+		var rift = VoidRiftEffect.new()
+		get_tree().current_scene.add_child(rift)
+		rift.setup_eradication(global_position)
+	
+	if not is_dying:
+		if enemy_type == "boss":
+			take_damage(max_hp * 0.25)
+		else:
+			_die()
 
 func _check_reactions(dmg: float) -> void:
 	if reaction_cooldown > 0 or is_dying: return
@@ -1041,6 +1095,10 @@ func _die() -> void:
 	if is_dying: return
 	is_dying = true
 	
+	# If this enemy died while void-infected, collapse & propagate before removal
+	if is_void_infected:
+		_trigger_void_collapse()
+	
 	if is_instance_valid(boss_warning_line):
 		boss_warning_line.queue_free()
 	if enemy_type == "boss":
@@ -1049,6 +1107,12 @@ func _die() -> void:
 				n.queue_free()
 				
 	GameManager.register_kill()
+	
+	if enemy_type == "golden_goblin":
+		var chest = load("res://scripts/TreasureChest.gd").new()
+		chest.global_position = global_position
+		get_tree().current_scene.add_child(chest)
+		GameManager.wave_event_triggered.emit("GOBLIN SLAIN!", "The Golden Goblin dropped an ancient Treasure Chest!")
 	
 	var current_orbs = get_tree().get_nodes_in_group("xp_orbs")
 	if current_orbs.size() < 250:
@@ -1116,8 +1180,26 @@ func _draw() -> void:
 	if is_frozen:
 		draw_rect(Rect2(-hit_radius, -hit_radius - 20, hit_radius * 2, hit_radius * 2), Color(0.5, 0.8, 1.0, 0.5), false, 2.0)
 		
-	# Void mark floating orb visual
-	if active_auras.has("void"):
+	# Void infection visual: swirling event horizon + 1.5s countdown gauge
+	if is_void_infected:
+		var time = Time.get_ticks_msec() / 1000.0
+		var pulse = sin(time * 10.0) * 2.5
+		# Swirling void ring around enemy base
+		draw_arc(Vector2.ZERO, hit_radius + 4.0 + pulse, 0, TAU, 20, Color(0.75, 0.15, 0.95, 0.7), 2.0)
+		draw_circle(Vector2.ZERO, (hit_radius + 4.0 + pulse) * 0.85, Color(0.3, 0.05, 0.45, 0.25))
+		
+		# 1.5s countdown gauge above head
+		var ratio = clampf(void_infection_timer / 1.5, 0.0, 1.0)
+		var center_head = Vector2(0, -hit_radius - 26.0)
+		# Background dark ring
+		draw_circle(center_head, 7.0, Color(0.1, 0.0, 0.18, 0.85))
+		draw_arc(center_head, 7.0, 0, TAU, 16, Color(0.3, 0.1, 0.4, 0.6), 1.5)
+		# Filling/winding timer arc (shrinks down to 0)
+		var arc_angle = ratio * TAU
+		draw_arc(center_head, 7.0, -PI * 0.5, -PI * 0.5 + arc_angle, 16, Color(0.95, 0.35, 1.0, 0.95), 2.5)
+		# Inner pulsating singularity core
+		draw_circle(center_head, 3.0 + (1.0 - ratio) * 2.0, Color(0.85, 0.2, 1.0, 0.9))
+	elif active_auras.has("void"):
 		var time = Time.get_ticks_msec() / 1000.0
 		var orb_y = sin(time * 4.0) * 3.0 - hit_radius - 28.0
 		draw_arc(Vector2(0, orb_y), 6.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 2.0)

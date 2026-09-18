@@ -201,6 +201,7 @@ class UpgradeCard extends PanelContainer:
 		var title = choice.get("title", "").to_lower()
 		var _tag = choice.get("tag", "").to_lower()
 		
+		if "knife" in raw_id or "knife" in title or "dao" in title or "dagger" in title: return "throwing_knife"
 		if "bolt" in raw_id or "bolt" in title or "piercing" in title: return "piercing_bolt"
 		if "blade" in raw_id or "blade" in title or "orbit" in title: return "orbit_blade"
 		if "whip" in raw_id or "whip" in title: return "magic_whip"

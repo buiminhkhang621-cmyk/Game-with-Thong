@@ -215,7 +215,7 @@ func _populate_list() -> void:
 		Tab.ACTIVE:
 			for data in GameManager.available_active_skills:
 				items.append({"id": data.id, "name": data.display_name, "data": data})
-			var extra_skills = ["res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+			var extra_skills = ["res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres", "res://resources/skills/chain_lightning.tres"]
 			for path in extra_skills:
 				var data = load(path)
 				if data and not _contains_id(items, data.id):
@@ -308,7 +308,7 @@ func _update_info() -> void:
 func _get_active_data(id: String) -> Resource:
 	for d in GameManager.available_active_skills:
 		if d.id == id: return d
-	var extra_skills = ["res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+	var extra_skills = ["res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
 	for p in extra_skills:
 		var d = load(p)
 		if d and d.id == id: return d

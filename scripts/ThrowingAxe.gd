@@ -42,10 +42,10 @@ func _process(delta: float) -> void:
 			if not is_instance_valid(enemy) or enemy.is_queued_for_deletion(): continue
 			var r_sq = (HIT_RADIUS + enemy.hit_radius) * (HIT_RADIUS + enemy.hit_radius)
 			if global_position.distance_squared_to(enemy.global_position) < r_sq:
-				enemy.take_damage(damage)
 				for r in runes:
 					if r != "damage" and enemy.has_method("apply_element"):
 						enemy.apply_element(r, damage * 0.5)
+				enemy.take_damage(damage)
 						
 				if is_empowered and GameManager.player:
 					GameManager.player.heal(GameManager.player.base_max_hp * 0.03) # 3% life steal
@@ -94,16 +94,51 @@ func _start_bounce() -> void:
 	else:
 		target_landing_pos = global_position
 
+static var _axe_tex: Texture2D = null
+static var _landing_tex: Texture2D = null
+
+static func get_axe_texture() -> Texture2D:
+	if _axe_tex == null:
+		_axe_tex = UITheme.load_texture("res://Sprite/weapon/axe.png")
+	return _axe_tex
+
+static func get_landing_texture() -> Texture2D:
+	if _landing_tex == null:
+		_landing_tex = UITheme.load_texture("res://Sprite/weapon/Axe-landing-point.png")
+	return _landing_tex
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
 func _draw() -> void:
 	if state == 1 or state == 2:
-		# Draw landing marker
-		draw_set_transform(to_local(target_landing_pos), 0, Vector2.ONE)
-		draw_arc(Vector2.ZERO, 15.0, 0, TAU, 16, Color(1, 0, 0, 0.5), 2.0)
-		draw_line(Vector2(-10, -10), Vector2(10, 10), Color(1, 0, 0, 0.5), 2.0)
-		draw_line(Vector2(-10, 10), Vector2(10, -10), Color(1, 0, 0, 0.5), 2.0)
+		# Draw landing marker using Axe-landing-point.png
+		var tex_land = get_landing_texture()
+		var local_target = to_local(target_landing_pos)
+		draw_set_transform(local_target, 0, Vector2.ONE)
+		var pulse = 1.0 + 0.12 * sin(Time.get_ticks_msec() / 120.0)
+		var marker_tint = Color(1.2, 0.4, 0.3, 0.9) if is_empowered else Color(1.0, 0.95, 0.8, 0.85)
+		if tex_land:
+			var l_size = tex_land.get_size() * 0.75 * pulse
+			draw_texture_rect(tex_land, Rect2(-l_size * 0.5, l_size), false, marker_tint)
+		else:
+			draw_arc(Vector2.ZERO, 16.0 * pulse, 0, TAU, 16, Color(1, 0, 0, 0.6), 2.0)
+			draw_line(Vector2(-10, -10), Vector2(10, 10), Color(1, 0, 0, 0.6), 2.0)
+			draw_line(Vector2(-10, 10), Vector2(10, -10), Color(1, 0, 0, 0.6), 2.0)
 		draw_set_transform(Vector2.ZERO, rotation, Vector2.ONE)
 	
-	# Draw the axe offset by z_height
-	draw_circle(Vector2(0, -z_height), 8.0, color)
-	draw_line(Vector2(0, -z_height - 10), Vector2(0, -z_height + 10), Color.WHITE, 3.0)
-	draw_line(Vector2(-8, -z_height), Vector2(8, -z_height), Color.WHITE, 3.0)
+	# Draw shadow when in air
+	if z_height > 0.5:
+		draw_circle(Vector2.ZERO, 6.0, Color(0, 0, 0, 0.35))
+	
+	# Draw the axe sprite offset by -z_height
+	var tex_axe = get_axe_texture()
+	var axe_tint = Color(1.4, 0.35, 0.15) if is_empowered else color
+	if tex_axe:
+		var a_size = tex_axe.get_size() * 0.65
+		draw_texture_rect(tex_axe, Rect2(Vector2(-a_size.x * 0.5, -z_height - a_size.y * 0.5), a_size), false, axe_tint)
+	else:
+		draw_circle(Vector2(0, -z_height), 8.0, axe_tint)
+		draw_line(Vector2(0, -z_height - 10), Vector2(0, -z_height + 10), Color.WHITE, 3.0)
+		draw_line(Vector2(-8, -z_height), Vector2(8, -z_height), Color.WHITE, 3.0)
+

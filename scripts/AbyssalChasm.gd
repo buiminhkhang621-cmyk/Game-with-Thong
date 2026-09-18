@@ -11,9 +11,7 @@ func setup(chasm_data: Dictionary) -> void:
 	has_bridge = chasm_data.get("has_bridge", false)
 	queue_redraw()
 
-func _process(delta: float) -> void:
-	var r_sq = radius * radius
-	
+func _process(_delta: float) -> void:
 	# Check Player Fall
 	var player = GameManager.player
 	if player and is_instance_valid(player):

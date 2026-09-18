@@ -23,15 +23,20 @@ static func draw_icon(canvas: CanvasItem, id: String, center: Vector2, size: flo
 			canvas.draw_polygon(pts, PackedColorArray([color]))
 			canvas.draw_polyline(pts, Color.WHITE, 1.5)
 			
-		"orbit_blade", "blade":
-			# Curved Spinning Chakram / Tri-Blade
-			for i in range(3):
-				var a = (TAU / 3.0) * i
-				var p1 = center + Vector2(cos(a), sin(a)) * s * 0.3
-				var p2 = center + Vector2(cos(a + 0.4), sin(a + 0.4)) * (s * 0.65)
-				var p3 = center + Vector2(cos(a + 0.8), sin(a + 0.8)) * s
-				canvas.draw_polygon(PackedVector2Array([center, p1, p2, p3]), PackedColorArray([color]))
-			canvas.draw_circle(center, s * 0.25, Color.WHITE)
+		"throwing_knife", "knife", "orbit_blade", "blade":
+			var tex = UITheme.load_texture("res://Sprite/weapon/knife.png")
+			if tex:
+				var sz = Vector2(s * 0.85, s * 1.05)
+				canvas.draw_texture_rect(tex, Rect2(center - sz * 0.5, sz), false, color)
+			else:
+				for i in range(3):
+					var a = (TAU / 3.0) * i
+					var p1 = center + Vector2(cos(a), sin(a)) * s * 0.3
+					var p2 = center + Vector2(cos(a + 0.4), sin(a + 0.4)) * (s * 0.65)
+					var p3 = center + Vector2(cos(a + 0.8), sin(a + 0.8)) * s
+					canvas.draw_polygon(PackedVector2Array([center, p1, p2, p3]), PackedColorArray([color]))
+				canvas.draw_circle(center, s * 0.25, Color.WHITE)
+
 			
 		"magic_whip", "whip":
 			# Curved Energy Whip / Slash
@@ -57,17 +62,22 @@ static func draw_icon(canvas: CanvasItem, id: String, center: Vector2, size: flo
 				canvas.draw_line(center + Vector2(0, s * 0.4), p, Color(color.r, color.g, color.b, 0.5), 2.0)
 				
 		"guardian", "shield":
-			# Aegis Tower Shield
-			var pts = PackedVector2Array([
-				center + Vector2(-s * 0.7, -s * 0.7),
-				center + Vector2(s * 0.7, -s * 0.7),
-				center + Vector2(s * 0.7, s * 0.1),
-				center + Vector2(0, s * 0.85),
-				center + Vector2(-s * 0.7, s * 0.1)
-			])
-			canvas.draw_polygon(pts, PackedColorArray([color]))
-			canvas.draw_polyline(pts, Color.WHITE, 1.5)
-			canvas.draw_line(center + Vector2(0, -s * 0.4), center + Vector2(0, s * 0.4), Color.WHITE, 2.0)
+			var tex = UITheme.load_texture("res://Sprite/weapon/shield.png")
+			if tex:
+				var sz = Vector2(s * 1.4, s * 1.9)
+				canvas.draw_texture_rect(tex, Rect2(center - sz * 0.5, sz), false, color)
+			else:
+				var pts = PackedVector2Array([
+					center + Vector2(-s * 0.7, -s * 0.7),
+					center + Vector2(s * 0.7, -s * 0.7),
+					center + Vector2(s * 0.7, s * 0.1),
+					center + Vector2(0, s * 0.85),
+					center + Vector2(-s * 0.7, s * 0.1)
+				])
+				canvas.draw_polygon(pts, PackedColorArray([color]))
+				canvas.draw_polyline(pts, Color.WHITE, 1.5)
+				canvas.draw_line(center + Vector2(0, -s * 0.4), center + Vector2(0, s * 0.4), Color.WHITE, 2.0)
+
 
 		"warden", "greatsword":
 			# Upright Broadsword
@@ -90,29 +100,54 @@ static func draw_icon(canvas: CanvasItem, id: String, center: Vector2, size: flo
 			canvas.draw_polyline(pts, Color.WHITE, 1.5)
 
 		"throwing_axe", "axe":
-			# Double-bladed Norse Battleaxe
+			var tex = UITheme.load_texture("res://Sprite/weapon/axe.png")
+			if tex:
+				var sz = Vector2(s * 1.6, s * 1.9)
+				canvas.draw_texture_rect(tex, Rect2(center - sz * 0.5, sz), false, color)
+			else:
+				var pts = PackedVector2Array([
+					center + Vector2(0, -s * 0.85),
+					center + Vector2(s * 0.6, -s * 0.6),
+					center + Vector2(s * 0.5, -s * 0.1),
+					center + Vector2(s * 0.15, -s * 0.2),
+					center + Vector2(s * 0.1, s * 0.85),
+					center + Vector2(-s * 0.1, s * 0.85),
+					center + Vector2(-s * 0.15, -s * 0.2),
+					center + Vector2(-s * 0.5, -s * 0.1),
+					center + Vector2(-s * 0.6, -s * 0.6)
+				])
+				canvas.draw_polygon(pts, PackedColorArray([color]))
+				canvas.draw_polyline(pts, Color.WHITE, 1.5)
+
+		"elemental_orbs", "orbs":
+			var tex = UITheme.load_texture("res://Sprite/weapon/Magic-ball.png")
+			if tex:
+				var sz = Vector2(s * 1.6, s * 1.65)
+				canvas.draw_texture_rect(tex, Rect2(center - sz * 0.5, sz), false, color)
+			else:
+				for i in range(3):
+					var a = (TAU / 3.0) * i
+					var p = center + Vector2(cos(a), sin(a)) * (s * 0.6)
+					canvas.draw_circle(p, s * 0.25, color)
+					canvas.draw_circle(p, s * 0.1, Color.WHITE)
+				canvas.draw_arc(center, s * 0.6, 0, TAU, 16, Color(color.r, color.g, color.b, 0.4), 1.5)
+				
+		"chain_lightning", "lightning":
+			# Electric lightning bolt zigzag
 			var pts = PackedVector2Array([
-				center + Vector2(0, -s * 0.85),
-				center + Vector2(s * 0.6, -s * 0.6),
-				center + Vector2(s * 0.5, -s * 0.1),
-				center + Vector2(s * 0.15, -s * 0.2),
-				center + Vector2(s * 0.1, s * 0.85),
-				center + Vector2(-s * 0.1, s * 0.85),
-				center + Vector2(-s * 0.15, -s * 0.2),
-				center + Vector2(-s * 0.5, -s * 0.1),
-				center + Vector2(-s * 0.6, -s * 0.6)
+				center + Vector2(s * 0.15, -s * 0.85),
+				center + Vector2(-s * 0.45, -s * 0.05),
+				center + Vector2(-s * 0.05, -s * 0.05),
+				center + Vector2(-s * 0.35, s * 0.85),
+				center + Vector2(s * 0.45, s * 0.0),
+				center + Vector2(s * 0.05, s * 0.0)
 			])
 			canvas.draw_polygon(pts, PackedColorArray([color]))
 			canvas.draw_polyline(pts, Color.WHITE, 1.5)
+			# Outer electric spark arcs
+			canvas.draw_arc(center, s * 0.7, 0.2, 1.2, 6, Color(1.0, 1.0, 0.7, 0.8), 2.0)
+			canvas.draw_arc(center, s * 0.7, 3.2, 4.2, 6, Color(1.0, 1.0, 0.7, 0.8), 2.0)
 
-		"elemental_orbs", "orbs":
-			# Triple Orbiting Plasma Spheres
-			for i in range(3):
-				var a = (TAU / 3.0) * i
-				var p = center + Vector2(cos(a), sin(a)) * (s * 0.6)
-				canvas.draw_circle(p, s * 0.25, color)
-				canvas.draw_circle(p, s * 0.1, Color.WHITE)
-			canvas.draw_arc(center, s * 0.6, 0, TAU, 16, Color(color.r, color.g, color.b, 0.4), 1.5)
 
 		# --- PASSIVES & STATS ---
 		"might":
@@ -163,18 +198,24 @@ static func draw_icon(canvas: CanvasItem, id: String, center: Vector2, size: flo
 			canvas.draw_polygon(pts, PackedColorArray([color]))
 
 		"armor":
-			var pts = PackedVector2Array([
-				center + Vector2(-s * 0.6, -s * 0.7),
-				center + Vector2(0, -s * 0.4),
-				center + Vector2(s * 0.6, -s * 0.7),
-				center + Vector2(s * 0.8, -s * 0.2),
-				center + Vector2(s * 0.5, s * 0.65),
-				center + Vector2(0, s * 0.85),
-				center + Vector2(-s * 0.5, s * 0.65),
-				center + Vector2(-s * 0.8, -s * 0.2)
-			])
-			canvas.draw_polygon(pts, PackedColorArray([color]))
-			canvas.draw_polyline(pts, Color.WHITE, 1.5)
+			var tex = UITheme.load_texture("res://Sprite/weapon/shield.png")
+			if tex:
+				var sz = Vector2(s * 1.4, s * 1.9)
+				canvas.draw_texture_rect(tex, Rect2(center - sz * 0.5, sz), false, color)
+			else:
+				var pts = PackedVector2Array([
+					center + Vector2(-s * 0.6, -s * 0.7),
+					center + Vector2(0, -s * 0.4),
+					center + Vector2(s * 0.6, -s * 0.7),
+					center + Vector2(s * 0.8, -s * 0.2),
+					center + Vector2(s * 0.5, s * 0.65),
+					center + Vector2(0, s * 0.85),
+					center + Vector2(-s * 0.5, s * 0.65),
+					center + Vector2(-s * 0.8, -s * 0.2)
+				])
+				canvas.draw_polygon(pts, PackedColorArray([color]))
+				canvas.draw_polyline(pts, Color.WHITE, 1.5)
+
 
 		"crit":
 			var pts = PackedVector2Array([

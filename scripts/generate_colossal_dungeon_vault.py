@@ -42,23 +42,29 @@ def generate_strongly_connected_chaotic_dungeon(gw=200, gh=200, map_id=1):
     grid = [[T_VOID for _ in range(gw)] for _ in range(gh)]
     elevation = [[0 for _ in range(gw)] for _ in range(gh)]
     
-    # 1. Asymmetrical Off-Center Spawn Nexus
-    cx = gw // 2 + random.randint(-18, 18)
-    cy = gh // 2 + random.randint(-18, 18)
+    # 1. Guaranteed Centered Spawn Nexus
+    cx = gw // 2
+    cy = gh // 2
     
     rooms = []
     mob_spawners = []
     
-    # Carve Spawn Hub (Organic shape)
-    c_rad = random.randint(11, 14)
+    # Carve Spawn Hub (Grand safe sanctuary plaza)
+    c_rad = 14
     for dy in range(-c_rad, c_rad + 1):
         for dx in range(-c_rad, c_rad + 1):
             dist = math.hypot(dx, dy)
             ang = math.atan2(dy, dx)
-            r_limit = c_rad + math.sin(ang * 4 + 1.2) * 2.0 + math.cos(ang * 3) * 1.5
+            r_limit = c_rad + math.sin(ang * 4 + 1.2) * 1.5
             if dist <= r_limit:
                 grid[cy + dy][cx + dx] = T_FLOOR_GRAVEL
                 elevation[cy + dy][cx + dx] = 2
+
+    # Inner mosaic circle
+    for dy in range(-4, 5):
+        for dx in range(-4, 5):
+            if dx*dx + dy*dy <= 16:
+                grid[cy + dy][cx + dx] = T_PATH_MOSAIC
 
     grid[cy][cx] = T_SPIRAL_VOID
     rooms.append({"id": "hub", "name": "Forgotten Nexus", "elem": "neutral", "x": cx, "y": cy, "tier": 2})
@@ -259,12 +265,14 @@ def generate_strongly_connected_chaotic_dungeon(gw=200, gh=200, map_id=1):
             if grid[y][x] == T_VOID and wall_grid[y][x] == T_WALL_SOLID:
                 grid[y][x] = T_WALL_SOLID
 
-    # 8. Circular Abyss Holes (Hố Sụt)
+    # 8. Circular Abyss Holes (Hố Sụt) - STRICTLY FORBIDDEN NEAR SPAWN!
     chasms = []
     for _ in range(12):
-        rand_r = random.choice(rooms)
-        hx = rand_r['x'] + random.randint(-5, 5)
-        hy = rand_r['y'] + random.randint(-5, 5)
+        rand_r = random.choice(rooms[1:]) # NEVER choose rooms[0] (spawn hub!)
+        hx = rand_r['x'] + random.randint(-4, 4)
+        hy = rand_r['y'] + random.randint(-4, 4)
+        if math.hypot(hx - cx, hy - cy) < 15: # Never within 15 tiles of spawn!
+            continue
         if 8 <= hx < gw - 8 and 8 <= hy < gh - 8 and grid[hy][hx] not in [T_VOID, T_WALL_SOLID]:
             grid[hy][hx] = T_CHASM
             chasms.append({"x": (hx - gw//2)*64, "y": (hy - gh//2)*64, "radius": 45, "has_bridge": True})

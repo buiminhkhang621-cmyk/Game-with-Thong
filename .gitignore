@@ -1,3 +1,24 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# Export & Build outputs
+build/
+builds/
+export/
+exports/
+*.exe
+*.zip
+*.pck
+*.apk
+
+# Temporary files & screenshots
+*.tmp
+*.log
+*.png.import.tmp
+main_menu_screenshot.*
+
+# OS generated files
+.DS_Store
+Thumbs.db
+

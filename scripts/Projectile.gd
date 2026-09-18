@@ -30,13 +30,29 @@ func _process(delta: float) -> void:
 		if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
 		var r_sq = (4.0 + e.hit_radius) * (4.0 + e.hit_radius)
 		if global_position.distance_squared_to(e.global_position) < r_sq:
-			e.take_damage(damage)
 			for r in runes:
 				if r != "damage" and e.has_method("apply_element"):
 					e.apply_element(r, damage * 0.5)
+			e.take_damage(damage)
 			queue_free()
 			return
 
 
+static var _proj_tex: Texture2D = null
+
+static func get_proj_texture() -> Texture2D:
+	if _proj_tex == null:
+		_proj_tex = UITheme.load_texture("res://Sprite/weapon/Magic-ball.png")
+	return _proj_tex
+
+func _ready() -> void:
+	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+
 func _draw() -> void:
-	draw_circle(Vector2.ZERO, 4.0, _color)
+	var tex = get_proj_texture()
+	if tex:
+		var sz = Vector2(16, 16)
+		draw_texture_rect(tex, Rect2(-sz * 0.5, sz), false, _color)
+	else:
+		draw_circle(Vector2.ZERO, 4.0, _color)
+

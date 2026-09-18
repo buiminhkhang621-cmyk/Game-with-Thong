@@ -273,5 +273,7 @@ func _on_settings_pressed() -> void:
 
 func _on_quit_pressed() -> void:
 	get_tree().paused = false
-	GameManager.game_over = true
+	GameManager.game_over = false
+	GameManager.stop_all_audio()
+	GameManager.restart_run_on_ready = false
 	get_tree().reload_current_scene()

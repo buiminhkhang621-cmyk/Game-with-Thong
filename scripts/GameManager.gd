@@ -6,6 +6,8 @@ var setting_master_vol: float = 1.0
 var setting_music_vol: float = 1.0
 var setting_sfx_vol: float = 1.0
 var setting_screen_shake: bool = true
+var setting_damage_numbers: bool = true
+var setting_show_fps: bool = false
 
 const SETTINGS_FILE = "user://settings.cfg"
 @warning_ignore("unused_signal")
@@ -38,6 +40,8 @@ signal wave_event_triggered(title: String, subtitle: String)
 @warning_ignore("unused_signal")
 signal blood_moon_state_changed(active: bool)
 @warning_ignore("unused_signal")
+signal abyssal_fog_state_changed(active: bool)
+@warning_ignore("unused_signal")
 signal chest_opened(rewards: Array)
 
 var bgm_player_1: AudioStreamPlayer
@@ -46,6 +50,7 @@ var active_bgm_player: AudioStreamPlayer
 var _bgm_tween: Tween = null
 var is_transitioning: bool = false
 var bgm_playlist: Array = []
+var restart_run_on_ready: bool = false
 
 var active_enemies: Array = []
 
@@ -106,6 +111,7 @@ var available_vong: Array = ["Guardian", "Warden"]
 var available_net: Array = ["Split", "Chase"]
 
 var available_active_skills: Array = [
+	load("res://resources/skills/chain_lightning.tres"),
 	load("res://resources/skills/orbit_blade.tres"),
 	load("res://resources/skills/piercing_bolt.tres"),
 	load("res://resources/skills/nova.tres"),
@@ -167,15 +173,26 @@ func hit_stop(duration: float = 0.05) -> void:
 	Engine.time_scale = 1.0
 
 
+func stop_all_audio() -> void:
+	if _bgm_tween:
+		_bgm_tween.kill()
+		_bgm_tween = null
+	is_transitioning = false
+	if is_instance_valid(bgm_player_1):
+		bgm_player_1.stop()
+		bgm_player_1.stream = null
+	if is_instance_valid(bgm_player_2):
+		bgm_player_2.stop()
+		bgm_player_2.stream = null
+	if get_tree():
+		for p in get_tree().get_nodes_in_group("sfx_players"):
+			if is_instance_valid(p):
+				p.stop()
+				p.queue_free()
+
 func _update_bgm() -> void:
-	if not player or game_over:
-		if active_bgm_player and active_bgm_player.playing and not is_transitioning:
-			if _bgm_tween:
-				_bgm_tween.kill()
-			_bgm_tween = get_tree().create_tween()
-			_bgm_tween.tween_property(active_bgm_player, "volume_db", -80.0, 2.0)
-			_bgm_tween.tween_callback(active_bgm_player.stop)
-			is_transitioning = true
+	if not player or game_over or (get_tree() and get_tree().paused):
+		stop_all_audio()
 		return
 		
 	if not active_bgm_player:
@@ -238,6 +255,7 @@ func register_player(p: Node) -> void:
 
 var current_class: String = ""
 var current_map_tier: int = 1
+var selected_skin: String = "default"
 
 var current_combo_hits: int = 0
 var current_combo_dmg: float = 0.0
@@ -250,6 +268,7 @@ func register_hit(dmg: float) -> void:
 	combo_updated.emit(current_combo_dmg, current_combo_hits)
 
 func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
+	stop_all_audio()
 	current_class = class_id
 	current_map_tier = map_tier
 	
@@ -270,22 +289,32 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	banishes_left = 1
 	banished_ids.clear()
 	is_blood_moon = false
+	weapons_disabled = false
+	is_blood_sacrifice = false
+	is_abyssal_fog = false
 	active_relics.clear()
 	
 	if player:
 		player.hp = player.base_max_hp
 		player._effective_max_hp = player.base_max_hp
+		player.global_position = Vector2.ZERO
+		player.velocity = Vector2.ZERO
+		if "external_force" in player:
+			player.external_force = Vector2.ZERO
+		if player.has_method("apply_skin"):
+			player.apply_skin(selected_skin)
 		hp_changed.emit(player.hp, player._effective_max_hp)
 
 	unlocked_runes.clear()
 
-	get_tree().paused = false
+	if get_tree():
+		get_tree().paused = false
 		
 	var start_weapon_path = ""
 	match class_id:
 		"berserker": start_weapon_path = "res://resources/skills/throwing_axe.tres"
 		"vanguard": start_weapon_path = "res://resources/skills/orbit_blade.tres"
-		"assassin": start_weapon_path = "res://resources/skills/piercing_bolt.tres"
+		"assassin": start_weapon_path = "res://resources/skills/throwing_knife.tres"
 		"void_mage": start_weapon_path = "res://resources/skills/elemental_orbs.tres"
 		
 	if start_weapon_path != "":
@@ -337,7 +366,7 @@ func register_kill() -> void:
 			player.heal(1.5)
 			
 	if is_blood_sacrifice and player:
-		player.heal(4.0)
+		player.heal(6.0)
 
 
 func add_score(amount: int) -> void:
@@ -348,7 +377,16 @@ func add_score(amount: int) -> void:
 
 
 func on_player_died() -> void:
+	if game_over:
+		return
 	game_over = true
+	weapons_disabled = false
+	is_blood_sacrifice = false
+	is_abyssal_fog = false
+	stop_all_audio()
+	if get_tree():
+		get_tree().paused = true
+	play_sfx(sfx_death)
 	save_game()
 	player_died.emit()
 
@@ -547,7 +585,7 @@ func _build_level_up_choices() -> Array:
 				})
 		
 		# Ensure new weapons are also added to available_active_skills pool dynamically if they are not there
-		var extra_skills = ["res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+		var extra_skills = ["res://resources/skills/chain_lightning.tres", "res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
 		for path in extra_skills:
 			var data = load(path)
 			if data and not banished_ids.has(data.id) and not _has_active(data.id) and not available_active_skills.has(data):
@@ -831,7 +869,7 @@ func _find_active(id: String) -> SkillData:
 		if d.id == id:
 			return d
 	# Check extras
-	var extra_skills = ["res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+	var extra_skills = ["res://resources/skills/chain_lightning.tres", "res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
 	for path in extra_skills:
 		var d = load(path)
 		if d and d.id == id:
@@ -873,6 +911,8 @@ func load_settings() -> void:
 		setting_music_vol = config.get_value("Audio", "music_vol", 1.0)
 		setting_sfx_vol = config.get_value("Audio", "sfx_vol", 1.0)
 		setting_screen_shake = config.get_value("Gameplay", "screen_shake", true)
+		setting_damage_numbers = config.get_value("Gameplay", "damage_numbers", true)
+		setting_show_fps = config.get_value("Gameplay", "show_fps", false)
 	
 	_apply_settings()
 
@@ -884,9 +924,29 @@ func save_settings() -> void:
 	config.set_value("Audio", "music_vol", setting_music_vol)
 	config.set_value("Audio", "sfx_vol", setting_sfx_vol)
 	config.set_value("Gameplay", "screen_shake", setting_screen_shake)
+	config.set_value("Gameplay", "damage_numbers", setting_damage_numbers)
+	config.set_value("Gameplay", "show_fps", setting_show_fps)
 	config.save(SETTINGS_FILE)
 	
 	_apply_settings()
+
+# SFX assets
+var sfx_electric_shock: AudioStream = preload("res://music/sfx/electric_shock.mp3")
+var sfx_level_up: AudioStream = preload("res://music/sfx/level_up.mp3")
+var sfx_death: AudioStream = preload("res://music/sfx/death.mp3")
+var sfx_achievement: AudioStream = preload("res://music/sfx/achivement.mp3")
+
+func play_sfx(stream: AudioStream, pitch_scale: float = 1.0) -> void:
+	if not stream: return
+	var p = AudioStreamPlayer.new()
+	p.stream = stream
+	p.bus = "SFX"
+	p.pitch_scale = pitch_scale
+	p.process_mode = Node.PROCESS_MODE_ALWAYS
+	p.add_to_group("sfx_players")
+	add_child(p)
+	p.finished.connect(p.queue_free)
+	p.play()
 
 func _apply_settings() -> void:
 	if setting_fullscreen:
@@ -899,7 +959,51 @@ func _apply_settings() -> void:
 	else:
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 		
-	# In the future, we will set AudioServer bus volumes here
+	# Ensure Music bus
+	var music_idx = AudioServer.get_bus_index("Music")
+	if music_idx == -1:
+		AudioServer.add_bus()
+		music_idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(music_idx, "Music")
+		AudioServer.set_bus_send(music_idx, "Master")
+
+	# Ensure SFX bus
+	var sfx_idx = AudioServer.get_bus_index("SFX")
+	if sfx_idx == -1:
+		AudioServer.add_bus()
+		sfx_idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(sfx_idx, "SFX")
+		AudioServer.set_bus_send(sfx_idx, "Master")
+
+	# Apply Master volume
+	var master_idx = AudioServer.get_bus_index("Master")
+	if master_idx >= 0:
+		if setting_master_vol <= 0.01:
+			AudioServer.set_bus_mute(master_idx, true)
+		else:
+			AudioServer.set_bus_mute(master_idx, false)
+			AudioServer.set_bus_volume_db(master_idx, linear_to_db(setting_master_vol))
+			
+	# Apply Music volume
+	if music_idx >= 0:
+		if setting_music_vol <= 0.01:
+			AudioServer.set_bus_mute(music_idx, true)
+		else:
+			AudioServer.set_bus_mute(music_idx, false)
+			AudioServer.set_bus_volume_db(music_idx, linear_to_db(setting_music_vol))
+			
+	# Apply SFX volume
+	if sfx_idx >= 0:
+		if setting_sfx_vol <= 0.01:
+			AudioServer.set_bus_mute(sfx_idx, true)
+		else:
+			AudioServer.set_bus_mute(sfx_idx, false)
+			AudioServer.set_bus_volume_db(sfx_idx, linear_to_db(setting_sfx_vol))
+
+	# Also apply directly to bgm players if needed
+	var music_db = -80.0 if setting_music_vol <= 0.01 else linear_to_db(setting_music_vol)
+	if is_instance_valid(bgm_player_1): bgm_player_1.volume_db = music_db
+	if is_instance_valid(bgm_player_2): bgm_player_2.volume_db = music_db
 
 func save_game() -> void:
 	var config = ConfigFile.new()
@@ -945,12 +1049,12 @@ func _ready() -> void:
 	]
 	
 	bgm_player_1 = AudioStreamPlayer.new()
-	bgm_player_1.bus = "Master"
+	bgm_player_1.bus = "Music"
 	bgm_player_1.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(bgm_player_1)
 	
 	bgm_player_2 = AudioStreamPlayer.new()
-	bgm_player_2.bus = "Master"
+	bgm_player_2.bus = "Music"
 	bgm_player_2.process_mode = Node.PROCESS_MODE_ALWAYS
 	add_child(bgm_player_2)
 	

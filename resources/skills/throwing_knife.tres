@@ -1,0 +1,17 @@
+[gd_resource type="Resource" script_class="SkillData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/SkillData.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "throwing_knife"
+display_name = "Throwing Knife"
+skill_type = "throwing_knife"
+max_level = 10
+base_damage = 9.0
+damage_per_level = 3.0
+base_cooldown = 0.75
+projectile_speed = 520.0
+base_radius = 45.0
+radius_per_level = 5.0
+color = Color(0.9, 0.95, 1.0, 1.0)

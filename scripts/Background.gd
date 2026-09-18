@@ -66,6 +66,27 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 	half_w = grid_width * tile_size * 0.5
 	half_h = grid_height * tile_size * 0.5
 	
+	# GUARANTEE SAFE SANCTUARY CENTRAL PLAZA (NO CHASM / NO VOID AT SPAWN)
+	# Absolutely forbid any chasm, void, or wall within 10 tiles (~650px radius) of center spawn!
+	var cx_tile = int(grid_width / 2)
+	var cy_tile = int(grid_height / 2)
+	var safe_r = 10
+	for dy in range(-safe_r, safe_r + 1):
+		for dx in range(-safe_r, safe_r + 1):
+			var dist = sqrt(dx*dx + dy*dy)
+			if dist <= safe_r:
+				var gx = cx_tile + dx
+				var gy = cy_tile + dy
+				if gy >= 0 and gy < grid_height and gx >= 0 and gx < grid_width:
+					var current_val = grid[gy][gx]
+					if current_val == 0 or current_val == 10 or current_val == 7:
+						if dx == 0 and dy == 0:
+							grid[gy][gx] = 6 # Spiral Void Rune
+						elif dist <= 4:
+							grid[gy][gx] = 5 # Pathway Mosaic
+						else:
+							grid[gy][gx] = 1 # Solid Gravel Floor
+	
 	# 1. Announce Realm Name and Lore to HUD
 	var realm_name = map_blueprint.get("name", "CHAOTIC LABYRINTH OF THE SHATTERED TITANS")
 	var lore = map_blueprint.get("lore", "An ancient strongly-connected asymmetrical ruined megastructure with 60 chambers across 4 tiers.")
@@ -77,10 +98,14 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 	if enemy_spawner:
 		enemy_spawner.mob_spawner_sites = spawners
 		
-	# 3. Spawn Chasms (Abyssal Pits & Bridges)
+	# 3. Spawn Chasms (Abyssal Pits & Bridges) - STRICTLY FORBID NEAR SPAWN
 	var chasm_script = load("res://scripts/AbyssalChasm.gd")
 	var chasms = map_blueprint.get("chasms", [])
 	for c_data in chasms:
+		var c_pos = Vector2(c_data.get("x", 0), c_data.get("y", 0))
+		# Strictly forbid any chasm within 750px of spawn!
+		if c_pos.length() < 750.0:
+			continue
 		var chasm = Node2D.new()
 		chasm.set_script(chasm_script)
 		add_child(chasm)
@@ -140,6 +165,16 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 				var wy = (y - grid_height/2.0 + 0.5) * tile_size
 				c_shape.position = Vector2(wx, wy)
 				wall_body.add_child(c_shape)
+
+	# 6. Position Player on Guaranteed Safe Walkable Sanctuary Plaza!
+	var player = GameManager.player
+	if not player and get_tree().current_scene:
+		player = get_tree().current_scene.find_child("Player", true, false)
+	if player:
+		player.global_position = Vector2.ZERO
+		player.velocity = Vector2.ZERO
+		if "external_force" in player:
+			player.external_force = Vector2.ZERO
 
 	queue_redraw()
 

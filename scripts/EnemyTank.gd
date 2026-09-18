@@ -87,3 +87,4 @@ func _draw() -> void:
 	var r = hit_radius * 0.85
 	var rect = Rect2(-r, -r, r*2, r*2)
 	draw_rect(rect, color)
+

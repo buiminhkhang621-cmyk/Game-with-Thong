@@ -27,8 +27,10 @@ func _ready() -> void:
 	GameManager.boss_spawned.connect(_on_boss_spawned)
 	GameManager.wave_event_triggered.connect(_on_wave_event_triggered)
 	GameManager.blood_moon_state_changed.connect(_on_blood_moon_changed)
+	GameManager.abyssal_fog_state_changed.connect(_on_abyssal_fog_changed)
 	
 	_setup_blood_moon_vignette()
+	_setup_abyssal_fog_vignette()
 	_setup_damage_flash()
 	
 	var rune_radar = RuneRadar.new()
@@ -66,6 +68,22 @@ func _ready() -> void:
 	spell_info_label.add_theme_font_size_override("font_size", 13)
 	add_child(spell_info_label)
 	
+	shield_display = Control.new()
+	shield_display.position = Vector2(235, 18)
+	shield_display.custom_minimum_size = Vector2(90, 24)
+	shield_display.draw.connect(func():
+		var armor_val = min(0.75, GameManager.passive_value("armor")) + GameManager.elixir_armor_bonus
+		if armor_val > 0.01:
+			var s_tex = UITheme.load_texture("res://Sprite/weapon/shield.png")
+			if s_tex:
+				var sz = Vector2(14, 21)
+				shield_display.draw_texture_rect(s_tex, Rect2(0, 0, sz.x, sz.y), false, Color.WHITE)
+			var font = ThemeDB.fallback_font
+			if font:
+				shield_display.draw_string(font, Vector2(18, 15), "%d%% DEF" % int(armor_val * 100.0), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.85, 0.55))
+	)
+	add_child(shield_display)
+	
 	fps_label = Label.new()
 	add_child(fps_label)
 	fps_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -102,12 +120,17 @@ func _ready() -> void:
 	_refresh()
 
 var runes_display: Control = null
+var shield_display: Control = null
 
 func _process(_delta: float) -> void:
 	if fps_label:
-		fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
+		fps_label.visible = GameManager.setting_show_fps
+		if fps_label.visible:
+			fps_label.text = "FPS: %d" % Engine.get_frames_per_second()
 	if runes_display:
 		runes_display.queue_redraw()
+	if shield_display:
+		shield_display.queue_redraw()
 
 
 var damage_flash_rect: ColorRect = null
@@ -186,6 +209,7 @@ func _on_combo_reset() -> void:
 		)
 
 var blood_moon_rect: ColorRect = null
+var abyssal_fog_rect: ColorRect = null
 var active_banner_node: Node = null
 
 func _setup_blood_moon_vignette() -> void:
@@ -195,6 +219,13 @@ func _setup_blood_moon_vignette() -> void:
 	blood_moon_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(blood_moon_rect)
 
+func _setup_abyssal_fog_vignette() -> void:
+	abyssal_fog_rect = ColorRect.new()
+	abyssal_fog_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	abyssal_fog_rect.color = Color(0.05, 0.02, 0.1, 0.0) # Deep dark eerie fog
+	abyssal_fog_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(abyssal_fog_rect)
+
 func _on_blood_moon_changed(active: bool) -> void:
 	if not blood_moon_rect: return
 	var tween = get_tree().create_tween()
@@ -202,6 +233,14 @@ func _on_blood_moon_changed(active: bool) -> void:
 		tween.tween_property(blood_moon_rect, "color:a", 0.18, 1.5)
 	else:
 		tween.tween_property(blood_moon_rect, "color:a", 0.0, 1.5)
+
+func _on_abyssal_fog_changed(active: bool) -> void:
+	if not abyssal_fog_rect: return
+	var tween = get_tree().create_tween()
+	if active:
+		tween.tween_property(abyssal_fog_rect, "color:a", 0.45, 1.8)
+	else:
+		tween.tween_property(abyssal_fog_rect, "color:a", 0.0, 1.5)
 
 func _on_wave_event_triggered(title_text: String, subtitle_text: String) -> void:
 	if is_instance_valid(active_banner_node):

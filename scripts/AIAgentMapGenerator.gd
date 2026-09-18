@@ -99,7 +99,7 @@ Output ONLY valid JSON with this exact schema:
 		body_json = {
 			"model": "llama-3.3-70b-versatile",
 			"messages": [
-				{"role": "system", "content": "You are a specialized game map generator. Output ONLY raw JSON."},
+				{"role": "system", "content": prompt},
 				{"role": "user", "content": "Generate an ancient ruined map layout. " + theme_hint}
 			],
 			"response_format": {"type": "json_object"},
@@ -114,7 +114,7 @@ Output ONLY valid JSON with this exact schema:
 		body_json = {
 			"model": "meta-llama/llama-3.3-70b-instruct:free",
 			"messages": [
-				{"role": "system", "content": "You are a specialized game map generator. Output ONLY raw JSON."},
+				{"role": "system", "content": prompt},
 				{"role": "user", "content": "Generate an ancient ruined map layout. " + theme_hint}
 			]
 		}
