@@ -29,13 +29,24 @@ const JUMP_FORCE: float = 250.0
 
 
 func _ready() -> void:
-	hp = base_max_hp
-	
 	match GameManager.current_class:
-		"berserker": hp *= 0.9 # -10% HP
-		"void_mage": hp *= 0.9 # -10% HP
-		
-	base_max_hp = hp
+		"vanguard":
+			base_max_hp = 185.0 # Tank Archetype: Massive Health Pool
+			move_speed = 160.0
+		"assassin":
+			base_max_hp = 75.0  # Poke Archetype: Fragile Glass Cannon
+			move_speed = 215.0  # Swift kiting speed
+		"void_mage":
+			base_max_hp = 85.0  # Mage Archetype: Arcane Cloth Caster
+			move_speed = 170.0
+		"berserker":
+			base_max_hp = 130.0 # Bruiser Archetype: Resilient Frontliner
+			move_speed = 180.0
+		_:
+			base_max_hp = 100.0
+			move_speed = 170.0
+			
+	hp = base_max_hp
 	_effective_max_hp = base_max_hp
 	GameManager.register_player(self)
 	GameManager.level_changed.connect(_on_level_changed)
@@ -116,9 +127,12 @@ func _physics_process(delta: float) -> void:
 
 	if GameManager.current_class == "berserker":
 		_berserker_time += delta
-		if _berserker_time >= 1.5:
+		if _berserker_time >= 1.2:
 			_berserker_time = 0.0
-			berserker_dmg_buff = min(0.25, berserker_dmg_buff + 0.01)
+			berserker_dmg_buff = min(0.35, berserker_dmg_buff + 0.02)
+	elif GameManager.current_class == "vanguard" and not GameManager.game_over and hp > 0.0 and hp < _effective_max_hp:
+		# Tank Archetype: Runic Bastion (1.5 HP/s Passive Regeneration)
+		heal(1.5 * delta)
 	
 	if z_height > 0.0 or z_velocity != 0.0:
 		z_velocity -= GRAVITY * delta
@@ -279,9 +293,10 @@ func _update_max_hp() -> void:
 
 func _apply_landing_knockback() -> void:
 	var is_silence = GameManager.weapons_disabled
-	var stomp_dmg = 65.0 if is_silence else 5.0
-	var stomp_force = 450.0 if is_silence else 200.0
-	var extra_r = 90.0 if is_silence else 40.0
+	var is_tank = GameManager.current_class == "vanguard"
+	var stomp_dmg = 65.0 if is_silence else (25.0 if is_tank else 5.0)
+	var stomp_force = 450.0 if is_silence else (360.0 if is_tank else 200.0)
+	var extra_r = 90.0 if is_silence else (60.0 if is_tank else 40.0)
 	
 	if is_silence:
 		_shake_intensity = 15.0
@@ -313,6 +328,17 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	if not is_ground_attack and _damage_i_frames > 0.0:
 		return
 		
+	# Assassin Archetype: 15% innate dodge agility
+	if GameManager.current_class == "assassin" and randf() < 0.15:
+		if GameManager.setting_damage_numbers:
+			var dn = load("res://scenes/DamageNumber.tscn").instantiate()
+			var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
+			if target_parent:
+				target_parent.add_child(dn)
+				dn.global_position = global_position + Vector2(0, -20)
+				dn.setup(0.0, false, Color(0.4, 0.9, 1.0))
+		return
+
 	# Tier 2 Passive: 8% dodge chance
 	if GameManager.get_total_passive_levels() >= 10:
 		if randf() < 0.08:
@@ -324,8 +350,13 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	var armor = min(0.75, GameManager.passive_value("armor"))
 	dmg *= (1.0 - armor)
 	
+	# Vanguard: -30% flat damage mitigation (Iron Bastion)
 	if GameManager.current_class == "vanguard":
-		dmg *= 0.8
+		dmg *= 0.70
+		
+	# Berserker: Last Stand (-15% damage taken when below 40% HP)
+	if GameManager.current_class == "berserker" and hp <= _effective_max_hp * 0.40:
+		dmg *= 0.85
 		
 	if GameManager.active_curses.has("mong_manh"):
 		dmg *= 1.25
@@ -342,6 +373,20 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 	_shake_intensity = 22.0
 	_hurt_timer = 0.3 # 0.3 seconds of hurt animation
 	
+	# Vanguard Kinetic Thorns: Retaliatory shockwave when taking hits
+	if GameManager.current_class == "vanguard" and dmg >= 4.0 and is_inside_tree():
+		var fx = ElementalVisualEffect.new()
+		get_tree().current_scene.add_child(fx)
+		fx.setup_elemental_burst(global_position, "lightning")
+		for e in GameManager.active_enemies:
+			if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
+			if global_position.distance_squared_to(e.global_position) < 110.0 * 110.0:
+				if e.has_method("apply_knockback"):
+					var kb_dir = (e.global_position - global_position).normalized()
+					e.apply_knockback(kb_dir, 190.0)
+				if e.has_method("take_damage"):
+					e.take_damage(16.0)
+
 	if sprite:
 		sprite.modulate = Color(1.0, 0.2, 0.2)
 		var tween = get_tree().create_tween()
@@ -368,8 +413,6 @@ func take_damage(amount: float, is_ground_attack: bool = true) -> void:
 
 func heal(amount: float) -> void:
 	var amt = amount
-	if GameManager.current_class == "vanguard":
-		amt *= 0.7
 	hp = min(_effective_max_hp, hp + amt)
 	GameManager.hp_changed.emit(hp, _effective_max_hp)
 

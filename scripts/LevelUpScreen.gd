@@ -200,10 +200,10 @@ class UpgradeCard extends PanelContainer:
 		if "armor" in raw_id or "armor" in title: return "armor"
 		if "crit" in raw_id or "crit" in title: return "crit"
 		if "cdr" in raw_id or "cdr" in title or "hourglass" in title or "cooldown" in title: return "cdr"
-		if "lightning" in raw_id or "lightning" in title or "sét" in title: return "lightning"
-		if "ice" in raw_id or "ice" in title or "băng" in title: return "ice"
-		if "dark" in raw_id or "dark" in title or "tối" in title: return "dark"
-		if "void" in raw_id or "void" in title or "hư vô" in title: return "void"
+		if "lightning" in raw_id or "lightning" in title: return "lightning"
+		if "ice" in raw_id or "ice" in title: return "ice"
+		if "dark" in raw_id or "dark" in title: return "dark"
+		if "void" in raw_id or "void" in title: return "void"
 		return "gem"
 
 
@@ -296,9 +296,9 @@ func _on_choices(choices: Array) -> void:
 		c.queue_free()
 
 	if GameManager.pending_level_ups > 0:
-		subtitle_label.text = "CẤP ĐỘ %d (CÒN %d LẦN CHỌN NỮA)" % [GameManager.level, GameManager.pending_level_ups]
+		subtitle_label.text = "LEVEL %d  (%d CHOICE(S) REMAINING)" % [GameManager.level, GameManager.pending_level_ups]
 	else:
-		subtitle_label.text = "CẤP ĐỘ %d - CHỌN PHƯỚC LÀNH CỔ ĐẠI" % GameManager.level
+		subtitle_label.text = "LEVEL %d — CHOOSE YOUR ANCIENT BLESSING" % GameManager.level
 
 	var display_count = min(3, choices.size())
 	for i in range(display_count):

@@ -1155,7 +1155,7 @@ func _die() -> void:
 				n.queue_free()
 		GameManager.on_boss_slain()
 				
-	GameManager.register_kill()
+	GameManager.register_kill(global_position)
 	
 	if enemy_type == "golden_goblin":
 		var chest = Area2D.new()

@@ -353,7 +353,7 @@ func grant_xp(amount: int) -> void:
 		_trigger_level_up()
 
 
-func register_kill() -> void:
+func register_kill(kill_pos: Vector2 = Vector2.INF) -> void:
 	kills += 1
 	total_kills += 1
 	kill_count_changed.emit(kills)
@@ -371,6 +371,27 @@ func register_kill() -> void:
 			
 	if is_blood_sacrifice and player:
 		player.heal(6.0)
+
+	# Class Archetype On-Kill Passives:
+	if current_class == "berserker" and player and is_instance_valid(player):
+		# Bloodthirst: Bruiser recovers 1.2 HP on every kill
+		player.heal(1.2)
+	elif current_class == "void_mage":
+		# Void Collapse: Mage has 25% chance to trigger an Arcane Nova implosion
+		if randf() < 0.25 and get_tree() and get_tree().current_scene:
+			var burst_pos = kill_pos if kill_pos != Vector2.INF else (player.global_position if player else Vector2.ZERO)
+			if burst_pos != Vector2.ZERO:
+				var fx = ElementalVisualEffect.new()
+				get_tree().current_scene.add_child(fx)
+				fx.setup_elemental_burst(burst_pos, "void")
+				for e in active_enemies:
+					if not is_instance_valid(e) or e.is_queued_for_deletion(): continue
+					if burst_pos.distance_squared_to(e.global_position) < 95.0 * 95.0:
+						if e.has_method("take_damage"):
+							e.take_damage(28.0)
+						if e.has_method("apply_knockback"):
+							var dir = (e.global_position - burst_pos).normalized()
+							e.apply_knockback(dir, 160.0)
 
 
 func add_score(amount: int) -> void:
@@ -406,15 +427,15 @@ func check_map_unlock(reason: String = "") -> void:
 		if run_time >= 600.0 or reason == "boss_slain":
 			unlocked_map_tiers.append(2)
 			unlocked_new = true
-			map_unlocked.emit(2, "RỪNG HẮC ÁM (FOREST)")
-			wave_event_triggered.emit("🎉 MỞ KHÓA MAP 2: RỪNG HẮC ÁM!", "Sinh tồn 10:00 hoặc hạ Boss thành công! Bạn có thể chọn Map 2.")
+			map_unlocked.emit(2, "DARK FOREST")
+			wave_event_triggered.emit("MAP 2 UNLOCKED: DARK FOREST!", "Survived 10:00 or slew the Boss! You may now enter the Forest.")
 			play_sfx(sfx_achievement)
 	elif current_map_tier == 2 and not unlocked_map_tiers.has(3):
 		if run_time >= 600.0 or reason == "boss_slain":
 			unlocked_map_tiers.append(3)
 			unlocked_new = true
-			map_unlocked.emit(3, "NGÔI LÀNG BỎ HOANG (VILLAGE)")
-			wave_event_triggered.emit("🎉 MỞ KHÓA MAP 3: NGÔI LÀNG BỎ HOANG!", "Sinh tồn 10:00 hoặc hạ Boss thành công! Bạn có thể chọn Map 3.")
+			map_unlocked.emit(3, "ABANDONED VILLAGE")
+			wave_event_triggered.emit("MAP 3 UNLOCKED: ABANDONED VILLAGE!", "Survived 10:00 or slew the Boss! You may now enter the Village.")
 			play_sfx(sfx_achievement)
 	if unlocked_new:
 		save_game()
@@ -501,7 +522,9 @@ func passive_value(stat: String) -> float:
 	if stat == "cooldown":
 		total += elixir_cdr_bonus
 		if current_class == "assassin":
-			total += 0.20
+			total += 0.25 # Poke Archetype: +25% CDR
+		elif current_class == "void_mage":
+			total += 0.20 # Mage Archetype: +20% CDR
 		if total_levels >= 5:
 			total += 0.03
 		if has_rune_resonance("lightning"):
@@ -515,13 +538,25 @@ func passive_value(stat: String) -> float:
 			
 	if stat == "armor":
 		total += elixir_armor_bonus
+		if current_class == "vanguard":
+			total += 0.25 # Tank Archetype: +25% innate armor
 		
 	if stat == "crit":
 		total += elixir_crit_bonus
+		if current_class == "assassin":
+			total += 0.25 # Poke Archetype: +25% innate critical strike chance
+		
+	if stat == "pickup":
+		if current_class == "void_mage":
+			total += 0.40 # Mage Archetype: +40% Arcane Vacuum magnet radius
 		
 	if stat == "damage":
 		if current_class == "berserker" and player:
-			total += player.berserker_dmg_buff
+			# Bruiser Archetype: Fury mechanic (+1% damage per 2% missing HP) + combat stacks
+			var missing_ratio = 1.0 - clampf(player.hp / max(1.0, player._effective_max_hp), 0.0, 1.0)
+			total += missing_ratio * 0.50 + player.berserker_dmg_buff
+		elif current_class == "void_mage":
+			total += 0.35 # Mage Archetype: +35% base spell amplification
 		total += stolen_dark_dmg
 		if is_blood_sacrifice:
 			total += 2.0

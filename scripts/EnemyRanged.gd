@@ -89,7 +89,7 @@ func take_damage(amount: float) -> void:
 		_die()
 
 func _die() -> void:
-	GameManager.register_kill()
+	GameManager.register_kill(global_position)
 	var orb = XP_ORB_SCENE.instantiate()
 	get_tree().current_scene.add_child(orb)
 	orb.global_position = global_position

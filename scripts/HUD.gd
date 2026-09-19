@@ -150,9 +150,10 @@ func _setup_damage_flash() -> void:
 	add_child(damage_flash_rect)
 
 func _flash_damage_vignette() -> void:
-	if not damage_flash_rect: return
+	if not is_instance_valid(damage_flash_rect): return
+	if not is_inside_tree(): return
 	damage_flash_rect.color = Color(0.9, 0.0, 0.0, 0.38)
-	var tween = get_tree().create_tween()
+	var tween = create_tween()
 	tween.tween_property(damage_flash_rect, "color:a", 0.0, 0.3)
 
 func _on_hp_changed(cur: float, max_hp: float) -> void:
@@ -210,7 +211,7 @@ func _on_combo_reset() -> void:
 	if combo_label and combo_label.visible:
 		if combo_tween:
 			combo_tween.kill()
-		combo_tween = get_tree().create_tween()
+		combo_tween = create_tween()
 		combo_tween.tween_property(combo_label, "modulate:a", 0.0, 0.4)
 		combo_tween.tween_callback(func():
 			combo_label.hide()
@@ -237,16 +238,18 @@ func _setup_abyssal_fog_vignette() -> void:
 	add_child(abyssal_fog_rect)
 
 func _on_blood_moon_changed(active: bool) -> void:
-	if not blood_moon_rect: return
-	var tween = get_tree().create_tween()
+	if not is_instance_valid(blood_moon_rect): return
+	if not is_inside_tree(): return
+	var tween = create_tween()
 	if active:
 		tween.tween_property(blood_moon_rect, "color:a", 0.18, 1.5)
 	else:
 		tween.tween_property(blood_moon_rect, "color:a", 0.0, 1.5)
 
 func _on_abyssal_fog_changed(active: bool) -> void:
-	if not abyssal_fog_rect: return
-	var tween = get_tree().create_tween()
+	if not is_instance_valid(abyssal_fog_rect): return
+	if not is_inside_tree(): return
+	var tween = create_tween()
 	if active:
 		tween.tween_property(abyssal_fog_rect, "color:a", 0.45, 1.8)
 	else:
@@ -300,7 +303,8 @@ func _on_wave_event_triggered(title_text: String, subtitle_text: String) -> void
 	s_lbl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	vbox.add_child(s_lbl)
 	
-	var tween = get_tree().create_tween()
+	if not is_inside_tree(): return
+	var tween = create_tween()
 	tween.tween_property(banner, "position:y", 25.0, 0.4).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tween.tween_interval(3.2)
 	tween.tween_property(banner, "position:y", -110.0, 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
@@ -313,7 +317,7 @@ func _on_boss_spawned() -> void:
 func _refresh() -> void:
 	var m := int(_time / 60.0)
 	var s := int(_time) % 60
-	info_label.text = "Lv %d  |  %d:%02d  |  %d  |  %d" % [_level, m, s, _kills, _score]
+	info_label.text = "Lv %d  |  %d:%02d  |  %d Kills  |  %d Score" % [_level, m, s, _kills, _score]
 	
 	if spell_info_label:
 		var lines = []

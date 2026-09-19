@@ -8,25 +8,29 @@ var anim_time: float = 0.0
 var class_info = {
 	"berserker": {
 		"name": "BERSERKER",
-		"desc": "-10% Max HP.\nDamage increases during combat.\nWields the blood-forged throwing axe.",
+		"role": "BRUISER / FIGHTER",
+		"desc": "✦ Role: Bruiser (Frontline Fighter)\n✦ Max HP: 130 (+30% Health Pool)\n✦ Bloodthirst: Recovers +1.2 HP on every kill.\n✦ Fury: Up to +50% Bonus Damage as HP drops.\n✦ Last Stand: -15% Damage Taken under 40% HP.\n✦ Weapon: Throwing Axe (Catch for empowered cleave & 4% lifesteal).",
 		"color": Color(0.9, 0.2, 0.2),
 		"accessory": "axe"
 	},
 	"vanguard": {
 		"name": "VANGUARD",
-		"desc": "Reduces damage taken by 20%.\nHealing reduced by 30%.\nGuarded by the ancient runic shield.",
+		"role": "TANK / GUARDIAN",
+		"desc": "✦ Role: Tank (Unyielding Guardian)\n✦ Max HP: 185 (+85% Massive Health Pool)\n✦ Iron Bastion: -30% Damage Taken, +25% Armor.\n✦ Runic Bastion: +1.5 HP/s natural regeneration.\n✦ Kinetic Thorns: Emits knockback shockwaves when taking hits.\n✦ Ground Slam: Giant jump landing shockwave & heavy knockback.\n✦ Weapon: Orbit Blades (Triple damage, heavy knockback).",
 		"color": Color(0.95, 0.8, 0.3),
 		"accessory": "shield"
 	},
 	"assassin": {
 		"name": "ASSASSIN",
-		"desc": "Fast movement, high critical damage.\nHurls razor-sharp throwing knives at foes.",
+		"role": "POKE / RANGER",
+		"desc": "✦ Role: Poke (Long-Range Ranger)\n✦ Max HP: 75 (Fragile Glass Cannon)\n✦ Swift Agility: 215 Move Speed & 15% Dodge Chance.\n✦ Critical Master: +25% Base Crit & 2.2x Crit Multiplier.\n✦ Haste: +25% Cooldown Reduction.\n✦ Weapon: Throwing Knives (High velocity, pierce & range).",
 		"color": Color(0.35, 0.45, 0.95),
 		"accessory": "knife"
 	},
 	"void_mage": {
 		"name": "VOID MAGE",
-		"desc": "-10% Max HP.\nSpecializes in AoE damage and crowd control.\nCommands orbiting cosmic void spheres.",
+		"role": "MAGE / CASTER",
+		"desc": "✦ Role: Mage (Arcane Spellcaster)\n✦ Max HP: 85 (Cloth Caster)\n✦ Arcane Surge: +35% Spell Damage & +20% CDR.\n✦ Void Collapse: 25% chance on kill to trigger Arcane Implosion.\n✦ Cosmic Magnet: +40% XP & Item Pickup Radius.\n✦ Weapon: Elemental Orbs (Devastating AoE elemental burst).",
 		"color": Color(0.75, 0.25, 0.95),
 		"accessory": "magic_balls"
 	}
@@ -120,10 +124,10 @@ func _ready() -> void:
 	left_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_child(left_vbox)
 	
-	_add_class_btn(left_vbox, "Berserker", "berserker")
-	_add_class_btn(left_vbox, "Vanguard", "vanguard")
-	_add_class_btn(left_vbox, "Assassin", "assassin")
-	_add_class_btn(left_vbox, "Void Mage", "void_mage")
+	_add_class_btn(left_vbox, "Berserker (Bruiser)", "berserker")
+	_add_class_btn(left_vbox, "Vanguard (Tank)", "vanguard")
+	_add_class_btn(left_vbox, "Assassin (Poke)", "assassin")
+	_add_class_btn(left_vbox, "Void Mage (Mage)", "void_mage")
 	
 	# --- Center Panel: Animated Hero Showcase on Altar ---
 	center_panel = Control.new()
@@ -372,7 +376,7 @@ func _add_class_btn(parent: Control, text: String, id: String) -> void:
 func _select_class(id: String, user_clicked: bool = true) -> void:
 	current_class = id
 	var info = class_info[id]
-	info_title.text = info["name"]
+	info_title.text = "%s\n[%s]" % [info["name"], info["role"]]
 	info_desc.text = info["desc"]
 	
 	_refresh_character_skin()

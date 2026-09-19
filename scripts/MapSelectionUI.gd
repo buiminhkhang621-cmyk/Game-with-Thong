@@ -33,7 +33,7 @@ func _ready() -> void:
 	root.add_child(p)
 	
 	var title = Label.new()
-	title.text = "✦ CHỌN BẢN ĐỒ / SELECT REALM ✦"
+	title.text = "✦ SELECT REALM ✦"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
@@ -44,7 +44,7 @@ func _ready() -> void:
 	root.add_child(title)
 	
 	var subtitle = Label.new()
-	subtitle.text = "Thứ tự bản đồ: 1. Ruin ➔ 2. Forest ➔ 3. Village. Phải sống sót 10 phút hoặc hạ Boss để mở khóa màn tiếp theo!"
+	subtitle.text = "Map order: 1. Ruin ➔ 2. Forest ➔ 3. Village. Survive 10 minutes or slay the Boss to unlock the next realm!"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_size_override("font_size", 14)
 	subtitle.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
@@ -53,7 +53,7 @@ func _ready() -> void:
 	root.add_child(subtitle)
 	
 	var back_btn = Button.new()
-	back_btn.text = "⮌ QUAY LẠI"
+	back_btn.text = "⮌ BACK"
 	back_btn.custom_minimum_size = Vector2(150, 48)
 	UITheme.apply_button_theme(back_btn)
 	back_btn.position = Vector2(40, 36)
@@ -75,8 +75,8 @@ func _ready() -> void:
 	_add_map_card(
 		hbox,
 		"1. RUIN",
-		"CỔ ĐIỆN TÀN TÍCH",
-		"✦ Hầm ngục đá cổ đại, các cột đá huyết mạch và lăng mộ ngàn năm.\n✦ Vực thẳm sâu hun hút và bát lửa bùng cháy.\n\n[MẶC ĐỊNH MỞ KHÓA]",
+		"ANCIENT RUIN",
+		"✦ Ancient stone crypts, blood-stained pillars and thousand-year tombs.\n✦ Bottomless chasms and blazing fire altars.\n\n[UNLOCKED BY DEFAULT]",
 		1,
 		Color(0.75, 0.55, 0.35),
 		is_map1_unlocked,
@@ -86,8 +86,8 @@ func _ready() -> void:
 	_add_map_card(
 		hbox,
 		"2. FOREST",
-		"RỪNG RẬM HẮC ÁM",
-		"✦ Những cây đại thụ ngàn năm, rễ cây ma quái và bãi nấm phát quang.\n✦ Vùng đầm lầy huyền bí, bão quái vật hung hãn.\n\n[ĐÃ MỞ KHÓA]" if is_map2_unlocked else "🔒 ĐANG BỊ KHÓA\n\nĐiều kiện mở khóa:\nPhải phá đảo (hạ Boss) hoặc sinh tồn đủ 10:00 tại Map 1 (Ruin)!",
+		"DARK FOREST",
+		"✦ Ancient towering trees, gnarled roots and bioluminescent mushroom groves.\n✦ Mystical marshlands, ferocious monster storms.\n\n[UNLOCKED]" if is_map2_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 1 (Ruin)!",
 		2,
 		Color(0.3, 0.75, 0.45) if is_map2_unlocked else Color(0.3, 0.35, 0.3),
 		is_map2_unlocked,
@@ -97,8 +97,8 @@ func _ready() -> void:
 	_add_map_card(
 		hbox,
 		"3. VILLAGE",
-		"NGÔI LÀNG BỎ HOANG",
-		"✦ Đường lát đá điêu tàn, nhà gỗ đổ nát, giếng cổ và hàng rào gai.\n✦ Cơn ác mộng tột cùng của quân đoàn hắc ám.\n\n[ĐÃ MỞ KHÓA]" if is_map3_unlocked else "🔒 ĐANG BỊ KHÓA\n\nĐiều kiện mở khóa:\nPhải phá đảo (hạ Boss) hoặc sinh tồn đủ 10:00 tại Map 2 (Forest)!",
+		"ABANDONED VILLAGE",
+		"✦ Crumbling stone roads, collapsed wooden huts, ancient wells and thorn fences.\n✦ The ultimate nightmare of the dark legion.\n\n[UNLOCKED]" if is_map3_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 2 (Forest)!",
 		3,
 		Color(0.85, 0.45, 0.35) if is_map3_unlocked else Color(0.35, 0.28, 0.28),
 		is_map3_unlocked,
@@ -157,13 +157,13 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	
 	var btn = Button.new()
 	if is_unlocked:
-		btn.text = "MANIFEST (VÀO TRẬN)"
+		btn.text = "✦ ENTER REALM ✦"
 		btn.custom_minimum_size = Vector2(200, 48)
 		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		UITheme.apply_button_theme(btn)
 		btn.pressed.connect(func(): _on_map_selected(tier))
 	else:
-		btn.text = "🔒 ĐÃ KHÓA"
+		btn.text = "🔒 LOCKED"
 		btn.custom_minimum_size = Vector2(200, 48)
 		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		btn.disabled = true

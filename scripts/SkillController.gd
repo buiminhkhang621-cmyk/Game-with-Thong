@@ -180,7 +180,7 @@ func _fire_orbit(s_dict: Dictionary, data: SkillData, level: int) -> void:
 				enemy.take_damage(dmg)
 				if enemy.has_method("apply_knockback"):
 					var kb_dir = (enemy.global_position - player.global_position).normalized()
-					enemy.apply_knockback(kb_dir, 80.0)
+					enemy.apply_knockback(kb_dir, 140.0)
 				break
 
 
@@ -315,7 +315,7 @@ func _fire_throwing_knife(s_dict: Dictionary, data: SkillData, level: int) -> vo
 	var count = 1 + int(level / 2.0)
 	var pierce = 1 + int(level / 3.0)
 	var r = s_dict.runes if s_dict.has("runes") else []
-	var is_crit = randf() < (0.25 + GameManager.passive_value("crit_chance"))
+	var is_crit = randf() < (0.25 + GameManager.passive_value("crit"))
 	
 	var spread_angle = deg_to_rad(9.0)
 	var start_offset = -((count - 1) * spread_angle) * 0.5
