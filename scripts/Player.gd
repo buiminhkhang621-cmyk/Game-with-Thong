@@ -6,7 +6,6 @@ extends CharacterBody2D
 
 var hp: float
 var hit_radius: float = 12.0
-var god_mode: bool = false
 
 var _effective_max_hp: float
 var _shake_intensity: float = 0.0
@@ -29,7 +28,25 @@ const JUMP_FORCE: float = 250.0
 
 
 func _ready() -> void:
-	match GameManager.current_class:
+	setup_class(GameManager.current_class)
+	GameManager.register_player(self)
+	GameManager.level_changed.connect(_on_level_changed)
+	
+	apply_skin(GameManager.selected_skin)
+
+func setup_class(class_id: String) -> void:
+	set_physics_process(true)
+	set_process(true)
+	z_height = 0.0
+	z_velocity = 0.0
+	external_force = Vector2.ZERO
+	_hurt_timer = 0.0
+	_landing_i_frames = 0.0
+	_damage_i_frames = 0.0
+	_jump_cooldown = 0.0
+	in_dark_state = false
+	
+	match class_id:
 		"vanguard":
 			base_max_hp = 185.0 # Tank Archetype: Massive Health Pool
 			move_speed = 160.0
@@ -48,8 +65,10 @@ func _ready() -> void:
 			
 	hp = base_max_hp
 	_effective_max_hp = base_max_hp
-	GameManager.register_player(self)
-	GameManager.level_changed.connect(_on_level_changed)
+	if sprite:
+		sprite.play("idle")
+	if GameManager:
+		GameManager.hp_changed.emit(hp, _effective_max_hp)
 	
 	apply_skin(GameManager.selected_skin)
 
@@ -212,10 +231,18 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var dir := Vector2.ZERO
-	dir.x = float(Input.is_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT)) \
-		- float(Input.is_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT))
-	dir.y = float(Input.is_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN)) \
-		- float(Input.is_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP))
+	var right = Input.is_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_D) or Input.is_key_pressed(KEY_RIGHT) or Input.is_action_pressed("ui_right")
+	var left = Input.is_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_A) or Input.is_key_pressed(KEY_LEFT) or Input.is_action_pressed("ui_left")
+	var down = Input.is_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_S) or Input.is_key_pressed(KEY_DOWN) or Input.is_action_pressed("ui_down")
+	var up = Input.is_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_W) or Input.is_key_pressed(KEY_UP) or Input.is_action_pressed("ui_up")
+	
+	dir.x = float(right) - float(left)
+	dir.y = float(down) - float(up)
+	
+	var joy_vec = Input.get_vector("ui_left", "ui_right", "ui_up", "ui_down")
+	if joy_vec.length() > 0.1 and dir.length() == 0.0:
+		dir = joy_vec
+		
 	if dir.length() > 0.0:
 		dir = dir.normalized()
 
@@ -230,7 +257,8 @@ func _physics_process(delta: float) -> void:
 	external_force = external_force.move_toward(Vector2.ZERO, 350.0 * delta)
 
 	# Jump logic: layer 1 collision barrier stops player from jumping into the void
-	if Input.is_key_pressed(KEY_SPACE) and z_height == 0.0 and _jump_cooldown <= 0.0:
+	var jump_pressed = Input.is_key_pressed(KEY_SPACE) or Input.is_physical_key_pressed(KEY_SPACE) or Input.is_action_pressed("ui_accept")
+	if jump_pressed and z_height == 0.0 and _jump_cooldown <= 0.0:
 		z_velocity = JUMP_FORCE
 		_jump_cooldown = 0.8
 		_shake_intensity = 4.0
@@ -321,7 +349,7 @@ func _apply_landing_knockback() -> void:
 
 
 func take_damage(amount: float, is_ground_attack: bool = true) -> void:
-	if GameManager.game_over or in_dark_state or god_mode:
+	if GameManager.game_over or in_dark_state:
 		return
 	if is_ground_attack and (z_height > 0.0 or _landing_i_frames > 0.0 or _damage_i_frames > 0.0):
 		return # Dodged by jumping, landing i-frames, or brief damage i-frames

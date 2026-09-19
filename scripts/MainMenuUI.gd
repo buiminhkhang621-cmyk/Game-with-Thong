@@ -151,7 +151,7 @@ func _ready() -> void:
 	
 	# Atmospheric Subtitle Banner
 	var subtitle = Label.new()
-	subtitle.text = "✦ SURVIVE THE ENDLESS CATACLYSM ✦"
+	subtitle.text = "✦ SURVIVE THE CORRUPTED LIMINAL REALMS ✦"
 	subtitle.position = Vector2(65, 275)
 	subtitle.size = Vector2(580, 26)
 	subtitle.add_theme_font_size_override("font_size", 14)
@@ -174,7 +174,7 @@ func _ready() -> void:
 
 	# 7. Bottom Version & Control Info
 	var ver = Label.new()
-	ver.text = "v1.3.0 • SHATTERED ABYSS • NIGHTMARE HORDE"
+	ver.text = "v1.3.0 • CORRUPTED LIMINAL VALLEYS • RELEASE"
 	ver.position = Vector2(85, 676)
 	ver.add_theme_font_size_override("font_size", 12)
 	ver.add_theme_color_override("font_color", Color(0.72, 0.70, 0.65))

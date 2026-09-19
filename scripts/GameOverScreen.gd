@@ -179,11 +179,9 @@ func _on_player_died() -> void:
 	# Explicitly hide all underlying UI so nothing bleeds through
 	var cur_scene = get_tree().current_scene
 	if cur_scene:
-		for ui_name in ["DevPanel", "LevelUpScreen", "HUD", "PauseMenuUI", "ChestUI", "QuestsUI"]:
+		for ui_name in ["LevelUpScreen", "HUD", "PauseMenuUI", "ChestUI", "QuestsUI"]:
 			var n = cur_scene.find_child(ui_name, true, false)
 			if n: n.visible = false
-	for dev in get_tree().get_nodes_in_group("dev_panel"):
-		dev.visible = false
 	
 	var m := int(GameManager.run_time / 60.0)
 	var s := int(GameManager.run_time) % 60

@@ -90,6 +90,20 @@ func _ready() -> void:
 	_setup_map_theme()
 	_load_and_build_random_dungeon()
 
+func rebuild_dungeon() -> void:
+	for c in get_children():
+		c.queue_free()
+	
+	ambient_particles = null
+	verified_floor_points.clear()
+	grid.clear()
+	current_map_data.clear()
+	_last_draw_pos = Vector2(INF, INF)
+	
+	_setup_map_theme()
+	_load_and_build_random_dungeon()
+	queue_redraw()
+
 func _setup_map_theme() -> void:
 	var tier = GameManager.current_map_tier
 	match tier:
@@ -189,8 +203,22 @@ func _instantiate_dungeon(map_blueprint: Dictionary) -> void:
 							grid[gy][gx] = 1 # Solid Walkable Floor
 	
 	# 1. Announce Realm Name and Lore to HUD
-	var realm_name = map_blueprint.get("name", "FORGOTTEN BATTLEGROUND")
-	var lore = map_blueprint.get("lore", "Survive the relentless trials of this realm.")
+	var realm_name = ""
+	var lore = ""
+	match GameManager.current_map_tier:
+		1:
+			realm_name = "LIMINAL RUINS — CORRUPTED THRESHOLD"
+			lore = "Distorted corridors and uncanny voids stretch into infinity under a motionless sky."
+		2:
+			realm_name = "UNCANNY GROVE — CORRUPTED WOODLANDS"
+			lore = "Trees frozen in unnatural symmetry. Shadows mimic lost human voices in the mist."
+		3:
+			realm_name = "HOLLOW VALLEY — FORSAKEN SETTLEMENT"
+			lore = "A silent ghost town trapped between dimensions; ground zero of the corruption."
+		_:
+			realm_name = map_blueprint.get("name", "CORRUPTED REALM")
+			lore = map_blueprint.get("lore", "Survive the liminal horrors.")
+	
 	var prefix = "📍 TIER %d: " % GameManager.current_map_tier
 	GameManager.wave_event_triggered.emit(prefix + realm_name, lore)
 	

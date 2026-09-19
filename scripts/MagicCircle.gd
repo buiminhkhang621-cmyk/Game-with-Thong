@@ -16,8 +16,8 @@ func setup(type: String) -> void:
 		modulate.a = 0.8
 	elif type == "big":
 		texture = load("res://Sprite/Environment/blue_doom-Sheet.png")
-		hframes = 36
-		vframes = 1
+		hframes = 6
+		vframes = 6
 		total_frames = 36
 		fps = 36.0 / 1.0 # Play in 1 second
 		scale = Vector2(2.5, 2.5)

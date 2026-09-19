@@ -297,8 +297,11 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	reset_combo()
 	
 	if player:
-		player.hp = player.base_max_hp
-		player._effective_max_hp = player.base_max_hp
+		if player.has_method("setup_class"):
+			player.setup_class(class_id)
+		else:
+			player.hp = player.base_max_hp
+			player._effective_max_hp = player.base_max_hp
 		player.global_position = Vector2.ZERO
 		player.velocity = Vector2.ZERO
 		if "external_force" in player:
@@ -427,15 +430,15 @@ func check_map_unlock(reason: String = "") -> void:
 		if run_time >= 600.0 or reason == "boss_slain":
 			unlocked_map_tiers.append(2)
 			unlocked_new = true
-			map_unlocked.emit(2, "DARK FOREST")
-			wave_event_triggered.emit("MAP 2 UNLOCKED: DARK FOREST!", "Survived 10:00 or slew the Boss! You may now enter the Forest.")
+			map_unlocked.emit(2, "UNCANNY GROVE")
+			wave_event_triggered.emit("CORRIDOR 2 UNLOCKED: UNCANNY GROVE!", "Breached the threshold! You may now traverse the Bio-Corrupted Woodlands.")
 			play_sfx(sfx_achievement)
 	elif current_map_tier == 2 and not unlocked_map_tiers.has(3):
 		if run_time >= 600.0 or reason == "boss_slain":
 			unlocked_map_tiers.append(3)
 			unlocked_new = true
-			map_unlocked.emit(3, "ABANDONED VILLAGE")
-			wave_event_triggered.emit("MAP 3 UNLOCKED: ABANDONED VILLAGE!", "Survived 10:00 or slew the Boss! You may now enter the Village.")
+			map_unlocked.emit(3, "HOLLOW VALLEY")
+			wave_event_triggered.emit("CORRIDOR 3 UNLOCKED: HOLLOW VALLEY!", "Breached the anomaly! You may now enter the Forsaken Settlement.")
 			play_sfx(sfx_achievement)
 	if unlocked_new:
 		save_game()
@@ -1143,6 +1146,17 @@ func load_game() -> void:
 		for q_id in quests.keys():
 			quests[q_id].current = config.get_value("Quests", q_id + "_current", 0)
 			quests[q_id].completed = config.get_value("Quests", q_id + "_completed", false)
+
+func reset_save_data() -> void:
+	total_kills = 0
+	unlocked_map_tiers = [1]
+	for q_id in quests.keys():
+		quests[q_id].current = 0
+		quests[q_id].completed = false
+	var dir = DirAccess.open("user://")
+	if dir and dir.file_exists("savegame.cfg"):
+		dir.remove("savegame.cfg")
+	save_game()
 
 func _check_quest(type: String, val: float) -> void:
 	for q_id in quests.keys():

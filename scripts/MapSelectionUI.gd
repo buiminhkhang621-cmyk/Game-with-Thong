@@ -33,7 +33,7 @@ func _ready() -> void:
 	root.add_child(p)
 	
 	var title = Label.new()
-	title.text = "✦ SELECT REALM ✦"
+	title.text = "✦ CORRUPTED EXPEDITION ✦"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.add_theme_font_size_override("font_size", 30)
 	title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
@@ -44,9 +44,9 @@ func _ready() -> void:
 	root.add_child(title)
 	
 	var subtitle = Label.new()
-	subtitle.text = "Map order: 1. Ruin ➔ 2. Forest ➔ 3. Village. Survive 10 minutes or slay the Boss to unlock the next realm!"
+	subtitle.text = "Liminal spaces and uncanny anomalies have corrupted the realm. Survive 10 minutes or slay the Boss to unlock the next corridor!"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 14)
+	subtitle.add_theme_font_size_override("font_size", 13)
 	subtitle.add_theme_color_override("font_color", Color(0.75, 0.78, 0.85))
 	subtitle.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	subtitle.position.y = 75
@@ -74,9 +74,9 @@ func _ready() -> void:
 	
 	_add_map_card(
 		hbox,
-		"1. RUIN",
-		"ANCIENT RUIN",
-		"✦ Ancient stone crypts, blood-stained pillars and thousand-year tombs.\n✦ Bottomless chasms and blazing fire altars.\n\n[UNLOCKED BY DEFAULT]",
+		"1. LIMINAL RUINS",
+		"CORRUPTED THRESHOLD",
+		"✦ Infinite distorted monoliths, uncanny empty corridors, and floating void runes.\n✦ Sinking chasms and frozen altars under an artificial, motionless twilight.\n\n[UNLOCKED BY DEFAULT]",
 		1,
 		Color(0.75, 0.55, 0.35),
 		is_map1_unlocked,
@@ -85,39 +85,48 @@ func _ready() -> void:
 	
 	_add_map_card(
 		hbox,
-		"2. FOREST",
-		"DARK FOREST",
-		"✦ Ancient towering trees, gnarled roots and bioluminescent mushroom groves.\n✦ Mystical marshlands, ferocious monster storms.\n\n[UNLOCKED]" if is_map2_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 1 (Ruin)!",
+		"2. UNCANNY GROVE",
+		"BIO-CORRUPTED WOODS",
+		"✦ Surreal trees frozen in unnatural symmetry and bioluminescent fungal colonies.\n✦ Eerie mist where predatory entities mimic human whispers and lost voices.\n\n[UNLOCKED]" if is_map2_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 1 (Liminal Ruins)!",
 		2,
 		Color(0.3, 0.75, 0.45) if is_map2_unlocked else Color(0.3, 0.35, 0.3),
 		is_map2_unlocked,
-		"Survive 10:00 or defeat Boss in Map 1 (Ruin)"
+		"Survive 10:00 or defeat Boss in Map 1 (Liminal Ruins)"
 	)
 	
 	_add_map_card(
 		hbox,
-		"3. VILLAGE",
-		"ABANDONED VILLAGE",
-		"✦ Crumbling stone roads, collapsed wooden huts, ancient wells and thorn fences.\n✦ The ultimate nightmare of the dark legion.\n\n[UNLOCKED]" if is_map3_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 2 (Forest)!",
+		"3. HOLLOW VALLEY",
+		"FORSAKEN SETTLEMENT",
+		"✦ Cobblestone ghost streets, identical hollow cottages, and silent abandoned wells.\n✦ Ground zero of the corruption where reality itself begins to unravel.\n\n[UNLOCKED]" if is_map3_unlocked else "🔒 LOCKED\n\nUnlock Condition:\nSurvive 10:00 or defeat the Boss in Map 2 (Uncanny Grove)!",
 		3,
 		Color(0.85, 0.45, 0.35) if is_map3_unlocked else Color(0.35, 0.28, 0.28),
 		is_map3_unlocked,
-		"Survive 10:00 or defeat Boss in Map 2 (Forest)"
+		"Survive 10:00 or defeat Boss in Map 2 (Uncanny Grove)"
 	)
 
 func _add_map_card(parent: Control, title_str: String, subtitle_str: String, desc: String, tier: int, c: Color, is_unlocked: bool, lock_hint: String) -> void:
 	var panel = Panel.new()
 	panel.custom_minimum_size = Vector2(280, 420)
 	panel.add_theme_stylebox_override("panel", UITheme.create_stone_card(c if is_unlocked else Color(0.2, 0.22, 0.25)))
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	if is_unlocked:
+		panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		panel.gui_input.connect(func(ev: InputEvent):
+			if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+				_on_map_selected(tier)
+		)
 	parent.add_child(panel)
 	
 	var vbox = VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	vbox.add_theme_constant_override("separation", 12)
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.add_child(vbox)
 	
 	var top_spacer = Control.new()
 	top_spacer.custom_minimum_size = Vector2(0, 16)
+	top_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(top_spacer)
 	
 	# Status Badge
@@ -128,6 +137,7 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	badge.add_theme_color_override("font_color", Color(0.4, 0.95, 0.5) if is_unlocked else Color(0.9, 0.4, 0.4))
 	badge.add_theme_color_override("font_outline_color", Color.BLACK)
 	badge.add_theme_constant_override("outline_size", 3)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(badge)
 	
 	var l_title = Label.new()
@@ -137,6 +147,7 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	l_title.add_theme_color_override("font_color", c.lerp(Color.WHITE, 0.6) if is_unlocked else Color(0.6, 0.6, 0.65))
 	l_title.add_theme_color_override("font_outline_color", Color.BLACK)
 	l_title.add_theme_constant_override("outline_size", 4)
+	l_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(l_title)
 	
 	var l_sub = Label.new()
@@ -144,6 +155,7 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	l_sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l_sub.add_theme_font_size_override("font_size", 13)
 	l_sub.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85) if is_unlocked else Color(0.5, 0.5, 0.55))
+	l_sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(l_sub)
 	
 	var l_desc = Label.new()
@@ -153,6 +165,7 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	l_desc.add_theme_font_size_override("font_size", 13)
 	l_desc.add_theme_color_override("font_color", Color(0.85, 0.85, 0.9) if is_unlocked else Color(0.75, 0.55, 0.55))
 	l_desc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	l_desc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(l_desc)
 	
 	var btn = Button.new()
@@ -174,14 +187,21 @@ func _add_map_card(parent: Control, title_str: String, subtitle_str: String, des
 	
 	var bot_spacer = Control.new()
 	bot_spacer.custom_minimum_size = Vector2(0, 16)
+	bot_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vbox.add_child(bot_spacer)
 
+var _is_starting: bool = false
+
 func _on_map_selected(tier: int) -> void:
+	if _is_starting:
+		return
 	if not GameManager.unlocked_map_tiers.has(tier):
 		return
+	_is_starting = true
 	var main = get_tree().current_scene
 	if main and main.has_method("start_game"):
 		main.start_game(selected_class, tier)
+	queue_free()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:

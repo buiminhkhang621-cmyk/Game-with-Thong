@@ -15,7 +15,7 @@ func _process(_delta: float) -> void:
 	# Check Player Fall
 	var player = GameManager.player
 	if player and is_instance_valid(player):
-		if player.z_height <= 0.0 and not player.in_dark_state and not player.god_mode:
+		if player.z_height <= 0.0 and not player.in_dark_state:
 			var d_sq = global_position.distance_squared_to(player.global_position)
 			if d_sq < (radius * 0.85) * (radius * 0.85):
 				# If has bridge, check if player is safely on bridge

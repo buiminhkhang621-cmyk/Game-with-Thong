@@ -80,7 +80,7 @@ func _process(delta: float) -> void:
 				queue_free()
 				return
 
-func _spawn_hit_spark(pos: Vector2) -> void:
+func _spawn_hit_spark(_pos: Vector2) -> void:
 	# Subtle slash impact juice
 	var gm = get_node_or_null("/root/GameManager")
 	if is_crit and gm and gm.player:

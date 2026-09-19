@@ -112,7 +112,7 @@ func _ready() -> void:
 		GameManager._apply_settings()
 	)
 	
-	var sfx_slider = _add_slider(content_vbox, "SFX Volume", GameManager.setting_sfx_vol, func(v):
+	var _sfx_slider = _add_slider(content_vbox, "SFX Volume", GameManager.setting_sfx_vol, func(v):
 		GameManager.setting_sfx_vol = v
 		GameManager._apply_settings()
 	)
@@ -172,6 +172,31 @@ func _ready() -> void:
 		GameManager._apply_settings()
 	)
 	content_vbox.add_child(chk_fps)
+	
+	# ================= DATA MANAGEMENT =================
+	_add_section_title(content_vbox, "DATA & SAVE MANAGEMENT")
+	
+	var reset_row = HBoxContainer.new()
+	var reset_lbl = Label.new()
+	reset_lbl.text = "Reset Progress (Maps & Quests):"
+	reset_lbl.custom_minimum_size = Vector2(230, 0)
+	reset_lbl.modulate = Color(0.9, 0.75, 0.75)
+	reset_row.add_child(reset_lbl)
+	
+	var reset_btn = Button.new()
+	reset_btn.text = "RESET ALL DATA"
+	reset_btn.custom_minimum_size = Vector2(200, 38)
+	UITheme.apply_button_theme(reset_btn)
+	reset_btn.modulate = Color(1.0, 0.65, 0.65)
+	reset_btn.pressed.connect(func():
+		GameManager.reset_save_data()
+		reset_btn.text = "✓ DATA RESET TO DEFAULT"
+		reset_btn.disabled = true
+		reset_btn.modulate = Color(0.6, 1.0, 0.6)
+		GameManager.play_sfx(GameManager.sfx_click)
+	)
+	reset_row.add_child(reset_btn)
+	content_vbox.add_child(reset_row)
 	
 	# ================= BOTTOM BAR =================
 	var bottom_row = HBoxContainer.new()
@@ -242,8 +267,8 @@ func _on_test_shake() -> void:
 		test_shake_tween = create_tween()
 		var orig = panel.position
 		for i in range(6):
-			var offset = Vector2(randf_range(-6, 6), randf_range(-6, 6))
-			test_shake_tween.tween_property(panel, "position", orig + offset, 0.03)
+			var shake_offset = Vector2(randf_range(-6, 6), randf_range(-6, 6))
+			test_shake_tween.tween_property(panel, "position", orig + shake_offset, 0.03)
 		test_shake_tween.tween_property(panel, "position", orig, 0.05)
 
 func _on_back_pressed() -> void:

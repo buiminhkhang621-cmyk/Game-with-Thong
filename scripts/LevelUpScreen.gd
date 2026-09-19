@@ -313,8 +313,9 @@ func _on_choices(choices: Array) -> void:
 	banish_btn.disabled = GameManager.banishes_left <= 0
 	banish_btn.modulate = Color.WHITE
 
-	var t = get_tree().create_timer(0.25, true, false, true)
-	await t.timeout
+	if is_inside_tree() and get_tree():
+		var t = get_tree().create_timer(0.25, true, false, true)
+		await t.timeout
 	_input_locked = false
 
 func _on_card_pressed(idx: int) -> void:

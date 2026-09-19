@@ -8,29 +8,25 @@ var anim_time: float = 0.0
 var class_info = {
 	"berserker": {
 		"name": "BERSERKER",
-		"role": "BRUISER / FIGHTER",
-		"desc": "✦ Role: Bruiser (Frontline Fighter)\n✦ Max HP: 130 (+30% Health Pool)\n✦ Bloodthirst: Recovers +1.2 HP on every kill.\n✦ Fury: Up to +50% Bonus Damage as HP drops.\n✦ Last Stand: -15% Damage Taken under 40% HP.\n✦ Weapon: Throwing Axe (Catch for empowered cleave & 4% lifesteal).",
+		"desc": "✦ +30% Max HP (130 HP)\n✦ Heals 1.2 HP on every kill\n✦ Up to +50% Damage as HP drops\n✦ Wields blood-forged throwing axes",
 		"color": Color(0.9, 0.2, 0.2),
 		"accessory": "axe"
 	},
 	"vanguard": {
 		"name": "VANGUARD",
-		"role": "TANK / GUARDIAN",
-		"desc": "✦ Role: Tank (Unyielding Guardian)\n✦ Max HP: 185 (+85% Massive Health Pool)\n✦ Iron Bastion: -30% Damage Taken, +25% Armor.\n✦ Runic Bastion: +1.5 HP/s natural regeneration.\n✦ Kinetic Thorns: Emits knockback shockwaves when taking hits.\n✦ Ground Slam: Giant jump landing shockwave & heavy knockback.\n✦ Weapon: Orbit Blades (Triple damage, heavy knockback).",
+		"desc": "✦ +85% Max HP (185 HP), +25% Armor\n✦ Takes 30% reduced damage\n✦ Auto-regenerates +1.5 HP/s\n✦ Orbit blades deflect & knockback",
 		"color": Color(0.95, 0.8, 0.3),
 		"accessory": "shield"
 	},
 	"assassin": {
 		"name": "ASSASSIN",
-		"role": "POKE / RANGER",
-		"desc": "✦ Role: Poke (Long-Range Ranger)\n✦ Max HP: 75 (Fragile Glass Cannon)\n✦ Swift Agility: 215 Move Speed & 15% Dodge Chance.\n✦ Critical Master: +25% Base Crit & 2.2x Crit Multiplier.\n✦ Haste: +25% Cooldown Reduction.\n✦ Weapon: Throwing Knives (High velocity, pierce & range).",
+		"desc": "✦ +25% Critical strike chance (2.2x)\n✦ Swift 215 Move Speed & 15% Dodge\n✦ +25% Cooldown Reduction\n✦ Rapid piercing throwing knives",
 		"color": Color(0.35, 0.45, 0.95),
 		"accessory": "knife"
 	},
 	"void_mage": {
 		"name": "VOID MAGE",
-		"role": "MAGE / CASTER",
-		"desc": "✦ Role: Mage (Arcane Spellcaster)\n✦ Max HP: 85 (Cloth Caster)\n✦ Arcane Surge: +35% Spell Damage & +20% CDR.\n✦ Void Collapse: 25% chance on kill to trigger Arcane Implosion.\n✦ Cosmic Magnet: +40% XP & Item Pickup Radius.\n✦ Weapon: Elemental Orbs (Devastating AoE elemental burst).",
+		"desc": "✦ +35% Spell damage, +20% CDR\n✦ Kills trigger void collapse novas\n✦ +40% XP magnet pickup radius\n✦ Orbiting elemental void spheres",
 		"color": Color(0.75, 0.25, 0.95),
 		"accessory": "magic_balls"
 	}
@@ -101,9 +97,13 @@ func _ready() -> void:
 	
 	var back_btn = Button.new()
 	back_btn.text = "⮌ BACK"
-	back_btn.custom_minimum_size = Vector2(140, 48)
+	back_btn.custom_minimum_size = Vector2(130, 44)
 	UITheme.apply_button_theme(back_btn)
-	back_btn.position = Vector2(1080, 32)
+	back_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	back_btn.offset_left = -170
+	back_btn.offset_top = 26
+	back_btn.offset_right = -40
+	back_btn.offset_bottom = 70
 	back_btn.pressed.connect(_on_back_pressed)
 	add_child(back_btn)
 	
@@ -112,55 +112,55 @@ func _ready() -> void:
 	hbox.set_anchors_preset(Control.PRESET_CENTER)
 	hbox.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	hbox.grow_vertical = Control.GROW_DIRECTION_BOTH
-	hbox.custom_minimum_size = Vector2(1040, 470)
-	hbox.position = Vector2(60, 105)
+	hbox.custom_minimum_size = Vector2(1000, 440)
+	hbox.position = Vector2(80, 110)
 	hbox.add_theme_constant_override("separation", 35)
 	add_child(hbox)
 	
 	# --- Left Panel: Class Buttons ---
 	var left_vbox = VBoxContainer.new()
-	left_vbox.custom_minimum_size = Vector2(280, 420)
-	left_vbox.add_theme_constant_override("separation", 18)
+	left_vbox.custom_minimum_size = Vector2(240, 420)
+	left_vbox.add_theme_constant_override("separation", 14)
 	left_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	hbox.add_child(left_vbox)
 	
-	_add_class_btn(left_vbox, "Berserker (Bruiser)", "berserker")
-	_add_class_btn(left_vbox, "Vanguard (Tank)", "vanguard")
-	_add_class_btn(left_vbox, "Assassin (Poke)", "assassin")
-	_add_class_btn(left_vbox, "Void Mage (Mage)", "void_mage")
+	_add_class_btn(left_vbox, "Berserker", "berserker")
+	_add_class_btn(left_vbox, "Vanguard", "vanguard")
+	_add_class_btn(left_vbox, "Assassin", "assassin")
+	_add_class_btn(left_vbox, "Void Mage", "void_mage")
 	
 	# --- Center Panel: Animated Hero Showcase on Altar ---
 	center_panel = Control.new()
 	center_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center_panel.custom_minimum_size = Vector2(360, 420)
+	center_panel.custom_minimum_size = Vector2(340, 420)
 	hbox.add_child(center_panel)
 	_setup_character_preview(center_panel)
 	
 	# --- Right Panel: Characteristics Info and Manifest Button ---
 	var right_panel = PanelContainer.new()
-	right_panel.custom_minimum_size = Vector2(330, 420)
-	right_panel.add_theme_stylebox_override("panel", UITheme.create_stone_panel())
+	right_panel.custom_minimum_size = Vector2(300, 420)
+	right_panel.add_theme_stylebox_override("panel", UITheme.create_stone_card(Color(0.65, 0.55, 0.35)))
 	hbox.add_child(right_panel)
 	
 	var right_margin = MarginContainer.new()
-	right_margin.add_theme_constant_override("margin_left", 26)
-	right_margin.add_theme_constant_override("margin_right", 26)
-	right_margin.add_theme_constant_override("margin_top", 24)
-	right_margin.add_theme_constant_override("margin_bottom", 24)
+	right_margin.add_theme_constant_override("margin_left", 14)
+	right_margin.add_theme_constant_override("margin_right", 14)
+	right_margin.add_theme_constant_override("margin_top", 16)
+	right_margin.add_theme_constant_override("margin_bottom", 16)
 	right_panel.add_child(right_margin)
 	
 	var right_vbox = VBoxContainer.new()
-	right_vbox.add_theme_constant_override("separation", 18)
+	right_vbox.add_theme_constant_override("separation", 10)
 	right_margin.add_child(right_vbox)
 	
 	var info_header = Label.new()
 	info_header.text = "CHARACTERISTICS"
-	info_header.add_theme_font_size_override("font_size", 16)
+	info_header.add_theme_font_size_override("font_size", 14)
 	info_header.add_theme_color_override("font_color", Color(0.65, 0.65, 0.70))
 	right_vbox.add_child(info_header)
 	
 	info_title = Label.new()
-	info_title.add_theme_font_size_override("font_size", 26)
+	info_title.add_theme_font_size_override("font_size", 22)
 	info_title.add_theme_color_override("font_color", Color(1.0, 0.95, 0.8))
 	info_title.autowrap_mode = TextServer.AUTOWRAP_WORD
 	right_vbox.add_child(info_title)
@@ -171,7 +171,7 @@ func _ready() -> void:
 	right_vbox.add_child(divider)
 	
 	info_desc = Label.new()
-	info_desc.add_theme_font_size_override("font_size", 15)
+	info_desc.add_theme_font_size_override("font_size", 13)
 	info_desc.add_theme_color_override("font_color", Color(0.85, 0.85, 0.90))
 	info_desc.autowrap_mode = TextServer.AUTOWRAP_WORD
 	right_vbox.add_child(info_desc)
@@ -182,8 +182,8 @@ func _ready() -> void:
 	
 	var confirm_btn = Button.new()
 	confirm_btn.text = "MANIFEST"
-	confirm_btn.custom_minimum_size = Vector2(0, 52)
-	confirm_btn.add_theme_font_size_override("font_size", 20)
+	confirm_btn.custom_minimum_size = Vector2(0, 48)
+	confirm_btn.add_theme_font_size_override("font_size", 18)
 	UITheme.apply_button_theme(confirm_btn)
 	confirm_btn.pressed.connect(_on_confirm)
 	right_vbox.add_child(confirm_btn)
@@ -365,8 +365,8 @@ func _on_pedestal_draw() -> void:
 func _add_class_btn(parent: Control, text: String, id: String) -> void:
 	var btn = Button.new()
 	btn.text = text
-	btn.custom_minimum_size = Vector2(0, 62)
-	btn.add_theme_font_size_override("font_size", 20)
+	btn.custom_minimum_size = Vector2(0, 56)
+	btn.add_theme_font_size_override("font_size", 18)
 	UITheme.apply_button_theme(btn)
 	btn.pressed.connect(func():
 		_select_class(id, true)
@@ -376,7 +376,7 @@ func _add_class_btn(parent: Control, text: String, id: String) -> void:
 func _select_class(id: String, user_clicked: bool = true) -> void:
 	current_class = id
 	var info = class_info[id]
-	info_title.text = "%s\n[%s]" % [info["name"], info["role"]]
+	info_title.text = info["name"]
 	info_desc.text = info["desc"]
 	
 	_refresh_character_skin()

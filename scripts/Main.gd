@@ -3,8 +3,6 @@ extends Node2D
 var current_ui: Node = null
 
 func _ready() -> void:
-	if has_node("DevPanel"):
-		$DevPanel.hide()
 	y_sort_enabled = true
 	
 	if GameManager.restart_run_on_ready:
@@ -20,8 +18,6 @@ func _show_main_menu() -> void:
 	get_tree().paused = true
 	if has_node("HUD"):
 		$HUD.hide()
-	if has_node("DevPanel"):
-		$DevPanel.hide()
 	if has_node("GameOverScreen"):
 		$GameOverScreen.hide()
 	if has_node("LevelUpScreen"):
@@ -84,13 +80,14 @@ func start_game(class_id: String, map_tier: int) -> void:
 	
 	if has_node("HUD"):
 		$HUD.show()
-	if has_node("DevPanel"):
-		$DevPanel.show()
 	
 	if has_node("EnemySpawner"):
 		$EnemySpawner.reset_spawner()
 		
 	GameManager.start_run_with_class_and_map(class_id, map_tier)
+	
+	if has_node("Background"):
+		$Background.rebuild_dungeon()
 
 var pause_menu_instance: Node = null
 
