@@ -177,7 +177,9 @@ class UpgradeCard extends PanelContainer:
 
 	func _on_gui_input(event: InputEvent) -> void:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-			parent_screen._on_card_pressed(card_index)
+			if parent_screen and not parent_screen._input_locked:
+				accept_event()
+				parent_screen._on_card_pressed(card_index)
 
 	func _get_icon_id_for_choice(choice: Dictionary) -> String:
 		var raw_id = choice.get("id", "").to_lower()
@@ -282,20 +284,21 @@ func _ready() -> void:
 	bottom_bar.add_child(skip_btn)
 
 	GameManager.leveled_up_choices.connect(_on_choices)
-	hide()
+var _input_locked: bool = false
 
 func _on_choices(choices: Array) -> void:
 	_current_choices = choices
 	_is_banish_mode = false
+	_input_locked = true
 	show()
 	
 	for c in cards_container.get_children():
 		c.queue_free()
 
 	if GameManager.pending_level_ups > 0:
-		subtitle_label.text = "CHOOSE BLESSING (+%d PENDING)" % (GameManager.pending_level_ups + 1)
+		subtitle_label.text = "CẤP ĐỘ %d (CÒN %d LẦN CHỌN NỮA)" % [GameManager.level, GameManager.pending_level_ups]
 	else:
-		subtitle_label.text = "CHOOSE A SACRED BLESSING"
+		subtitle_label.text = "CẤP ĐỘ %d - CHỌN PHƯỚC LÀNH CỔ ĐẠI" % GameManager.level
 
 	var display_count = min(3, choices.size())
 	for i in range(display_count):
@@ -310,9 +313,16 @@ func _on_choices(choices: Array) -> void:
 	banish_btn.disabled = GameManager.banishes_left <= 0
 	banish_btn.modulate = Color.WHITE
 
+	var t = get_tree().create_timer(0.25, true, false, true)
+	await t.timeout
+	_input_locked = false
+
 func _on_card_pressed(idx: int) -> void:
+	if _input_locked:
+		return
 	if idx >= _current_choices.size():
 		return
+	_input_locked = true
 	var choice = _current_choices[idx]
 	
 	if _is_banish_mode:
@@ -331,11 +341,13 @@ func _on_card_pressed(idx: int) -> void:
 		hide()
 
 func _on_reroll_pressed() -> void:
+	if _input_locked: return
 	if GameManager.rerolls_left > 0:
 		GameManager.rerolls_left -= 1
 		_on_choices(GameManager._build_level_up_choices())
 
 func _on_banish_pressed() -> void:
+	if _input_locked: return
 	if GameManager.banishes_left > 0:
 		_is_banish_mode = not _is_banish_mode
 		if _is_banish_mode:
@@ -346,6 +358,8 @@ func _on_banish_pressed() -> void:
 			subtitle_label.text = "CHOOSE A SACRED BLESSING"
 
 func _on_skip_pressed() -> void:
+	if _input_locked: return
+	_input_locked = true
 	GameManager.skip_level_up()
 	if not GameManager.paused_for_levelup:
 		hide()

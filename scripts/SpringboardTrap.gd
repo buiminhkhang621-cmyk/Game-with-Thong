@@ -44,7 +44,7 @@ func _trigger_launch(player: Node2D) -> void:
 	cooldown = 0.8
 	player.global_position += launch_dir * 120.0
 	player.z_height = 40.0
-	player._jump_vel = 320.0
+	player.z_velocity = 320.0
 	player._shake_intensity = 15.0
 	
 	# Show "BOING!" popup text

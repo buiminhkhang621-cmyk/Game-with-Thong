@@ -1,9 +1,9 @@
 class_name EnemyTank
 extends CharacterBody2D
 
-@export var max_hp: float = 120.0
-@export var speed: float = 25.0
-@export var contact_dps: float = 25.0
+@export var max_hp: float = 220.0
+@export var speed: float = 60.0
+@export var contact_dps: float = 55.0
 @export var xp_value: int = 5
 @export var hit_radius: float = 24.0
 @export var color: Color = Color(0.6, 0.2, 0.8, 1.0)

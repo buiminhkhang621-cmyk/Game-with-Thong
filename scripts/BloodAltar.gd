@@ -34,9 +34,9 @@ func _perform_sacrifice(player: Node2D) -> void:
 	player.take_damage(25.0, false)
 	player._shake_intensity = 20.0
 	
-	# Grant +20% Permanent Damage & 100 XP
+	# Grant +20% Permanent Damage & 25 XP
 	GameManager.stolen_dark_dmg += 0.20
-	GameManager.grant_xp(100)
+	GameManager.grant_xp(25)
 	
 	# Visual text
 	var dn = load("res://scenes/DamageNumber.tscn").instantiate()

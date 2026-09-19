@@ -36,6 +36,10 @@ signal combo_reset()
 @warning_ignore("unused_signal")
 signal boss_spawned()
 @warning_ignore("unused_signal")
+signal boss_slain()
+@warning_ignore("unused_signal")
+signal map_unlocked(tier: int, name: String)
+@warning_ignore("unused_signal")
 signal wave_event_triggered(title: String, subtitle: String)
 @warning_ignore("unused_signal")
 signal blood_moon_state_changed(active: bool)
@@ -44,6 +48,7 @@ signal abyssal_fog_state_changed(active: bool)
 @warning_ignore("unused_signal")
 signal chest_opened(rewards: Array)
 
+var unlocked_map_tiers: Array = [1]
 var bgm_player_1: AudioStreamPlayer
 var bgm_player_2: AudioStreamPlayer
 var active_bgm_player: AudioStreamPlayer
@@ -152,6 +157,9 @@ func _process(delta: float) -> void:
 		
 	run_time += delta
 	run_time_changed.emit(run_time)
+	
+	if run_time >= 600.0:
+		check_map_unlock("survival")
 	
 	_check_quest("time", run_time)
 	if active_curses.size() > 0:
@@ -263,6 +271,7 @@ func start_run_with_class_and_map(class_id: String, map_tier: int) -> void:
 	stop_all_audio()
 	current_class = class_id
 	current_map_tier = map_tier
+	setup_bgm_for_map(current_map_tier)
 	
 	level = 1
 	xp = 0
@@ -334,6 +343,8 @@ func grant_xp(amount: int) -> void:
 		xp_to_next = int(12 + level * 8 + pow(level, 1.45) * 3)
 		level_changed.emit(level)
 		pending_level_ups += 1
+		if pending_level_ups >= 2:
+			break
 
 	xp_changed.emit(xp, xp_to_next)
 	_check_quest("level", level)
@@ -373,6 +384,7 @@ func on_player_died() -> void:
 	if game_over:
 		return
 	game_over = true
+	check_map_unlock("survival")
 	weapons_disabled = false
 	is_blood_sacrifice = false
 	is_abyssal_fog = false
@@ -383,6 +395,57 @@ func on_player_died() -> void:
 	play_sfx(sfx_death)
 	save_game()
 	player_died.emit()
+
+func on_boss_slain() -> void:
+	boss_slain.emit()
+	check_map_unlock("boss_slain")
+
+func check_map_unlock(reason: String = "") -> void:
+	var unlocked_new = false
+	if current_map_tier == 1 and not unlocked_map_tiers.has(2):
+		if run_time >= 600.0 or reason == "boss_slain":
+			unlocked_map_tiers.append(2)
+			unlocked_new = true
+			map_unlocked.emit(2, "RỪNG HẮC ÁM (FOREST)")
+			wave_event_triggered.emit("🎉 MỞ KHÓA MAP 2: RỪNG HẮC ÁM!", "Sinh tồn 10:00 hoặc hạ Boss thành công! Bạn có thể chọn Map 2.")
+			play_sfx(sfx_achievement)
+	elif current_map_tier == 2 and not unlocked_map_tiers.has(3):
+		if run_time >= 600.0 or reason == "boss_slain":
+			unlocked_map_tiers.append(3)
+			unlocked_new = true
+			map_unlocked.emit(3, "NGÔI LÀNG BỎ HOANG (VILLAGE)")
+			wave_event_triggered.emit("🎉 MỞ KHÓA MAP 3: NGÔI LÀNG BỎ HOANG!", "Sinh tồn 10:00 hoặc hạ Boss thành công! Bạn có thể chọn Map 3.")
+			play_sfx(sfx_achievement)
+	if unlocked_new:
+		save_game()
+
+func setup_bgm_for_map(tier: int) -> void:
+	match tier:
+		1: # Ruin
+			bgm_playlist = [
+				preload("res://music/bgm/map2/The_Stone_Chamber.mp3"),
+				preload("res://music/bgm/map2/Blade_in_the_Hall.mp3"),
+				preload("res://music/bgm/map2/The_Forgotten_Altar.mp3"),
+				preload("res://music/bgm/map2/Weight_of_the_Mountain.mp3")
+			]
+		2: # Forest
+			bgm_playlist = [
+				preload("res://music/bgm/map1/Under_the_Pale_Bark.mp3"),
+				preload("res://music/bgm/map1/Teeth_Within_The_Canopy.mp3"),
+				preload("res://music/bgm/map1/Cold_Branch_Dry_Ground.mp3"),
+				preload("res://music/bgm/map1/Strike_of_the_Undergrowth.mp3")
+			]
+		3: # Village
+			bgm_playlist = [
+				preload("res://music/bgm/map3/One_House_Left.mp3"),
+				preload("res://music/bgm/map3/The_Final_Ascent.mp3"),
+				preload("res://music/bgm/map3/Weight_of_the_Iron_Crown.mp3"),
+				preload("res://music/bgm/map3/Beneath_the_Pillars.mp3")
+			]
+		_:
+			bgm_playlist = [
+				preload("res://music/bgm/map2/The_Stone_Chamber.mp3")
+			]
 
 
 var elixir_armor_bonus: float = 0.0
@@ -1024,6 +1087,7 @@ func _apply_settings() -> void:
 func save_game() -> void:
 	var config = ConfigFile.new()
 	config.set_value("Data", "total_kills", total_kills)
+	config.set_value("Data", "unlocked_map_tiers", unlocked_map_tiers)
 	for q_id in quests.keys():
 		config.set_value("Quests", q_id + "_current", quests[q_id].current)
 		config.set_value("Quests", q_id + "_completed", quests[q_id].completed)
@@ -1034,6 +1098,13 @@ func load_game() -> void:
 	var err = config.load(SAVE_FILE)
 	if err == OK:
 		total_kills = config.get_value("Data", "total_kills", 0)
+		var loaded_maps = config.get_value("Data", "unlocked_map_tiers", [1])
+		if loaded_maps is Array:
+			unlocked_map_tiers = loaded_maps
+		else:
+			unlocked_map_tiers = [1]
+		if not unlocked_map_tiers.has(1):
+			unlocked_map_tiers.append(1)
 		for q_id in quests.keys():
 			quests[q_id].current = config.get_value("Quests", q_id + "_current", 0)
 			quests[q_id].completed = config.get_value("Quests", q_id + "_completed", false)
@@ -1057,12 +1128,7 @@ func _check_quest(type: String, val: float) -> void:
 func _ready() -> void:
 	load_settings()
 	load_game()
-	
-	bgm_playlist = [
-		preload("res://music/bgm/map2/The_Stone_Chamber.mp3"),
-		preload("res://music/bgm/map2/Blade_in_the_Hall.mp3"),
-		preload("res://music/bgm/map2/The_Forgotten_Altar.mp3")
-	]
+	setup_bgm_for_map(current_map_tier)
 	
 	bgm_player_1 = AudioStreamPlayer.new()
 	bgm_player_1.bus = "Music"

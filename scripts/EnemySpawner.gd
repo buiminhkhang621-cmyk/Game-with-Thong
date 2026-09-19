@@ -3,7 +3,7 @@ extends Node2D
 @export var enemy_scene: PackedScene
 @export var spawn_interval_start: float = 0.85
 @export var spawn_interval_min: float = 0.12
-@export var max_enemies: int = 200
+@export var max_enemies: int = 250
 @export var spawn_radius: float = 580.0
 
 var _timer: float = 0.0
@@ -35,8 +35,8 @@ const WAVES = [
 		"types": [
 			{"type": "normal", "weight": 100}
 		],
-		"max_enemies": 35,
-		"spawn_interval": 0.85,
+		"max_enemies": 45,
+		"spawn_interval": 0.65,
 		"batch_size": 2,
 	},
 	{
@@ -49,8 +49,8 @@ const WAVES = [
 			{"type": "swarm", "weight": 70},
 			{"type": "normal", "weight": 30}
 		],
-		"max_enemies": 50,
-		"spawn_interval": 0.60,
+		"max_enemies": 70,
+		"spawn_interval": 0.45,
 		"batch_size": 3,
 	},
 	{
@@ -64,9 +64,9 @@ const WAVES = [
 			{"type": "normal", "weight": 35},
 			{"type": "swarm", "weight": 25}
 		],
-		"max_enemies": 75,
-		"spawn_interval": 0.48,
-		"batch_size": 3,
+		"max_enemies": 95,
+		"spawn_interval": 0.38,
+		"batch_size": 4,
 	},
 	{
 		"start_time": 180.0,
@@ -79,8 +79,8 @@ const WAVES = [
 			{"type": "normal", "weight": 35},
 			{"type": "tank_yellow", "weight": 25}
 		],
-		"max_enemies": 100,
-		"spawn_interval": 0.38,
+		"max_enemies": 125,
+		"spawn_interval": 0.28,
 		"batch_size": 4,
 	},
 	{
@@ -94,9 +94,9 @@ const WAVES = [
 			{"type": "swarm", "weight": 35},
 			{"type": "normal", "weight": 25}
 		],
-		"max_enemies": 125,
-		"spawn_interval": 0.30,
-		"batch_size": 4,
+		"max_enemies": 150,
+		"spawn_interval": 0.22,
+		"batch_size": 5,
 	},
 	{
 		"start_time": 300.0,
@@ -109,8 +109,8 @@ const WAVES = [
 			{"type": "tank_yellow", "weight": 30},
 			{"type": "normal", "weight": 45}
 		],
-		"max_enemies": 150,
-		"spawn_interval": 0.22,
+		"max_enemies": 175,
+		"spawn_interval": 0.16,
 		"batch_size": 5,
 	},
 	{
@@ -125,9 +125,9 @@ const WAVES = [
 			{"type": "bomber", "weight": 20},
 			{"type": "tank_blue", "weight": 20}
 		],
-		"max_enemies": 170,
-		"spawn_interval": 0.18,
-		"batch_size": 5,
+		"max_enemies": 200,
+		"spawn_interval": 0.13,
+		"batch_size": 6,
 	},
 	{
 		"start_time": 480.0,
@@ -142,8 +142,8 @@ const WAVES = [
 			{"type": "sniper", "weight": 20},
 			{"type": "swarm", "weight": 20}
 		],
-		"max_enemies": 185,
-		"spawn_interval": 0.15,
+		"max_enemies": 220,
+		"spawn_interval": 0.10,
 		"batch_size": 6,
 	},
 	{
@@ -158,9 +158,9 @@ const WAVES = [
 			{"type": "bomber", "weight": 25},
 			{"type": "teleporter", "weight": 25}
 		],
-		"max_enemies": 200,
-		"spawn_interval": 0.12,
-		"batch_size": 6,
+		"max_enemies": 250,
+		"spawn_interval": 0.08,
+		"batch_size": 7,
 	}
 ]
 
@@ -289,9 +289,23 @@ func _spawn_wave_enemy(wave: Dictionary) -> void:
 		e.setup_type(chosen_type)
 
 	var tier = GameManager.current_map_tier
-	var hp_mult = 0.8 if tier == 1 else (1.4 if tier == 3 else 1.0)
+	var hp_mult = 1.0 if tier == 1 else (1.45 if tier == 2 else 1.95)
 	if e.has_method("setup_evolution"):
 		e.setup_evolution(GameManager.run_time, hp_mult)
+
+	# Dynamic Elite Infiltration (Elites become increasingly common and intimidating)
+	var t_minutes = GameManager.run_time / 60.0
+	var elite_chance = clampf(0.04 + t_minutes * 0.035, 0.04, 0.32)
+	if chosen_type != "boss" and chosen_type != "golden_goblin" and randf() < elite_chance:
+		e.is_elite = true
+		e.scale *= 1.28
+		e.max_hp *= 2.2
+		e.hp = e.max_hp
+		e.contact_dps *= 1.5
+		e.armor = min(0.80, e.armor + 0.18)
+		e.color = Color(1.3, 0.95, 0.35)
+		if e.get_node_or_null("AnimatedSprite2D"):
+			e.get_node("AnimatedSprite2D").modulate = Color(1.3, 0.95, 0.35)
 
 # --- VAMPIRE SURVIVORS SPECIAL EVENTS & FORMATIONS ---
 func _process_special_events(delta: float, t: float) -> void:
@@ -472,12 +486,13 @@ func _spawn_mini_boss(base_type: String, _boss_name: String) -> void:
 	e.global_position = pos
 	if e.has_method("setup_type"): e.setup_type(base_type)
 	e.enemy_type = "mini_boss"
-	if e.has_method("setup_evolution"): e.setup_evolution(GameManager.run_time, 2.2)
-	e.max_hp *= 3.5
+	if e.has_method("setup_evolution"): e.setup_evolution(GameManager.run_time, 3.2)
+	e.max_hp *= 4.5
 	e.hp = e.max_hp
-	e.scale *= 1.45
+	e.contact_dps *= 2.2
+	e.scale *= 1.55
 	if e.has_node("AnimatedSprite2D"):
-		e.get_node("AnimatedSprite2D").modulate = Color(1.2, 0.4, 0.4)
+		e.get_node("AnimatedSprite2D").modulate = Color(1.3, 0.35, 0.35)
 
 func _spawn_boss() -> void:
 	var player = GameManager.player
@@ -494,8 +509,8 @@ func _spawn_boss() -> void:
 		e.setup_type("boss")
 		
 	var tier: int = GameManager.current_map_tier
-	var hp_mult = 0.8 if tier == 1 else (1.5 if tier == 3 else 1.0)
+	var hp_mult = 1.0 if tier == 1 else (1.6 if tier == 2 else 2.4)
 	
 	if e.has_method("setup_evolution"):
-		e.setup_evolution(GameManager.run_time, hp_mult * 8.0)
+		e.setup_evolution(GameManager.run_time, hp_mult * 10.0)
 	GameManager.boss_spawned.emit()

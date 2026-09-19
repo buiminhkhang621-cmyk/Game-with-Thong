@@ -1,9 +1,9 @@
 class_name EnemyFast
 extends CharacterBody2D
 
-@export var max_hp: float = 6.0
-@export var speed: float = 120.0
-@export var contact_dps: float = 15.0
+@export var max_hp: float = 18.0
+@export var speed: float = 180.0
+@export var contact_dps: float = 30.0
 @export var xp_value: int = 1
 @export var hit_radius: float = 8.0
 @export var color: Color = Color(0.9, 0.8, 0.2, 1.0)

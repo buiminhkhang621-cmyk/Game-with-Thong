@@ -178,8 +178,8 @@ func _end_active_event() -> void:
 	match active_event_type:
 		"magic_silence":
 			GameManager.weapons_disabled = false
-			GameManager.grant_xp(60) # Reward for surviving silence trial!
-			GameManager.wave_event_triggered.emit("TRIAL CLEARED!", "Weapons restored! Awarded +60 Bonus XP!")
+			GameManager.grant_xp(25) # Reward for surviving silence trial!
+			GameManager.wave_event_triggered.emit("TRIAL CLEARED!", "Weapons restored! Awarded +25 Bonus XP!")
 		"blood_sacrifice":
 			GameManager.is_blood_sacrifice = false
 			GameManager.wave_event_triggered.emit("SACRIFICE CONCLUDED", "Blood pact ended. Health stabilized!")

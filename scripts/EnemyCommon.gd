@@ -1,9 +1,9 @@
 class_name EnemyCommon
 extends CharacterBody2D
 
-@export var max_hp: float = 16.0
-@export var speed: float = 75.0
-@export var contact_dps: float = 18.0
+@export var max_hp: float = 26.0
+@export var speed: float = 100.0
+@export var contact_dps: float = 30.0
 @export var xp_value: int = 1
 @export var hit_radius: float = 10.0
 @export var color: Color = Color.WHITE
@@ -39,6 +39,8 @@ var armor: float = 0.0
 var evolution_tier: int = 0
 var sniper_cooldown: float = 0.0
 var bomber_fuse: float = -1.0
+var is_exploded: bool = false
+var is_elite: bool = false
 var teleport_cooldown: float = 0.0
 var summon_cooldown: float = 0.0
 var mega_summon_timer: float = 0.0
@@ -73,88 +75,89 @@ func setup_type(type: String) -> void:
 	enemy_type = type
 	match type:
 		"boss":
-			speed *= 0.95
-			max_hp *= 14.0
+			speed *= 1.15
+			max_hp *= 26.0 # Terrifying titan health (~676 HP base)
 			hit_radius *= 3.0
-			contact_dps *= 3.5
-			armor = 0.50
+			contact_dps *= 4.5
+			armor = 0.60 # 60% Armor
 			boss_phase = 1
 			boss_state = "idle"
-			boss_attack_cooldown = 2.8
+			boss_attack_cooldown = 2.4
 		"swarm":
-			speed *= 1.85
-			max_hp *= 0.45
+			speed *= 1.95 # Blitz crawler (~195 px/s)
+			max_hp *= 0.65 # Tougher (~17 HP base)
 			hit_radius *= 0.6
-			contact_dps *= 1.2
-			armor = 0.0
+			contact_dps *= 1.4
+			armor = 0.08
 		"tank_blue", "tank":
-			speed *= 0.80
-			max_hp *= 7.0
+			speed *= 0.88 # 88 px/s
+			max_hp *= 9.5 # ~247 HP base
 			hit_radius *= 2.5
-			contact_dps *= 2.5
-			armor = 0.65 # 65% Armor Heavy Executioner
+			contact_dps *= 3.2
+			armor = 0.72 # 72% Armor Heavy Executioner
 		"tank_yellow":
-			speed *= 0.92
-			max_hp *= 4.5
+			speed *= 1.0 # 100 px/s
+			max_hp *= 5.8 # ~150 HP base
 			hit_radius *= 2.0
-			contact_dps *= 1.8
-			armor = 0.52 # 52% Armor Golem
+			contact_dps *= 2.2
+			armor = 0.58 # 58% Armor Golem
 		"sniper":
-			speed *= 1.15
-			max_hp *= 1.4
-			contact_dps *= 1.6
-			armor = 0.30
-			sniper_cooldown = randf_range(0.7, 1.2)
-		"bomber":
-			speed *= 1.65
-			max_hp *= 1.8
-			contact_dps *= 1.2
-			armor = 0.25
-		"teleporter":
-			speed *= 1.55
-			max_hp *= 1.7
+			speed *= 1.25 # 125 px/s
+			max_hp *= 2.2 # ~57 HP base
 			contact_dps *= 1.8
-			armor = 0.32
-			teleport_cooldown = randf_range(1.4, 2.4)
+			armor = 0.36
+			sniper_cooldown = randf_range(0.6, 1.0)
+		"bomber":
+			speed *= 2.10 # Menacing 210 px/s sprint
+			max_hp *= 3.2 # ~83 HP base
+			contact_dps *= 2.0
+			armor = 0.40
+		"teleporter":
+			speed *= 1.65 # 165 px/s
+			max_hp *= 2.5 # ~65 HP base
+			contact_dps *= 2.2
+			armor = 0.38
+			teleport_cooldown = randf_range(1.1, 1.9)
 		"summoner":
-			speed *= 1.3
-			max_hp *= 5.0
-			contact_dps *= 1.5
-			armor = 0.45
-			summon_cooldown = randf_range(1.8, 2.8)
-			mega_summon_timer = randf_range(16.0, 22.0)
+			speed *= 1.35
+			max_hp *= 7.5 # ~195 HP base
+			contact_dps *= 1.8
+			armor = 0.52
+			summon_cooldown = randf_range(1.4, 2.2)
+			mega_summon_timer = randf_range(12.0, 18.0)
 		"golden_goblin":
-			speed *= 1.75
-			max_hp *= 3.5
+			speed *= 1.85
+			max_hp *= 4.5
 			contact_dps = 0.0 # Harmless treasure creature
-			armor = 0.15
-			xp_value = 100
+			armor = 0.20
+			xp_value = 25
 			color = Color(1.0, 0.85, 0.1)
 			if sprite:
 				sprite.modulate = Color(1.0, 0.9, 0.2)
 		_:
-			armor = 0.22 # Base 22% Armor for normal
-			speed *= 1.15
+			armor = 0.28 # Base 28% Armor for normal
+			speed *= 1.20 # 120 px/s
 			
 	# ======== EXPONENTIAL SCALING (ABSOLUTE NIGHTMARE) ========
-	# Early game (0-3 min): gentle ramp so player can get skills
-	# Mid game (3-6 min): noticeable pressure increase
-	# Late game (6-8 min): brutal, enemies become deadly walls of stats
-	# End game (8+ min): near-impossible, only perfect builds survive
+	# Early game (0-3 min): noticeable pressure ramp
+	# Mid game (3-6 min): intense pressure, deadly mobs
+	# Late game (6-8 min): brutal walls of stats
+	# End game (8+ min): near-impossible, overwhelming onslaught
 	var t_minutes = GameManager.run_time / 60.0
 	
-	# Base exponential curves (steeper than before)
-	var hp_base = 1.0 + pow(t_minutes, 1.65) * 0.55
-	var dmg_base = 1.0 + pow(t_minutes, 1.55) * 0.50
-	var spd_base = 1.0 + min(1.10, pow(t_minutes, 1.2) * 0.18)
+	# Base exponential curves (steeper nightmare curves)
+	var hp_base = 1.0 + pow(t_minutes, 1.75) * 0.65
+	var dmg_base = 1.0 + pow(t_minutes, 1.65) * 0.58
+	var spd_base = 1.0 + min(1.25, pow(t_minutes, 1.25) * 0.22)
 	
 	# Breakpoint multipliers - sudden difficulty spikes at key moments
 	var breakpoint_hp = 1.0
 	var breakpoint_dmg = 1.0
-	if t_minutes >= 3.0: breakpoint_hp *= 1.35; breakpoint_dmg *= 1.25  # 3 min spike
-	if t_minutes >= 5.0: breakpoint_hp *= 1.60; breakpoint_dmg *= 1.50  # 5 min wall
-	if t_minutes >= 7.0: breakpoint_hp *= 2.00; breakpoint_dmg *= 1.80  # 7 min nightmare
-	if t_minutes >= 9.0: breakpoint_hp *= 2.80; breakpoint_dmg *= 2.50  # 9 min impossible
+	if t_minutes >= 2.0: breakpoint_hp *= 1.30; breakpoint_dmg *= 1.25  # 2 min early spike
+	if t_minutes >= 3.5: breakpoint_hp *= 1.55; breakpoint_dmg *= 1.40  # 3.5 min wall
+	if t_minutes >= 5.0: breakpoint_hp *= 1.85; breakpoint_dmg *= 1.65  # 5 min escalation
+	if t_minutes >= 7.0: breakpoint_hp *= 2.30; breakpoint_dmg *= 2.00  # 7 min nightmare
+	if t_minutes >= 9.0: breakpoint_hp *= 3.20; breakpoint_dmg *= 2.80  # 9 min cataclysm
 	
 	var hp_mult = hp_base * breakpoint_hp
 	var dmg_mult = dmg_base * breakpoint_dmg
@@ -164,7 +167,7 @@ func setup_type(type: String) -> void:
 	contact_dps *= dmg_mult
 	speed *= spd_mult
 	# Armor scales faster: enemies get tanky fast in late game
-	armor = min(0.88, armor + t_minutes * 0.028)
+	armor = min(0.90, armor + t_minutes * 0.032)
 	
 	hp = max_hp
 	_original_color = color
@@ -203,6 +206,7 @@ func setup_type(type: String) -> void:
 				
 		if sprite.sprite_frames and sprite.sprite_frames.has_animation("idle"):
 			sprite.play("idle")
+	hp = max_hp
 
 func setup_evolution(time_sec: float, tier_mult: float = 1.0) -> void:
 	if time_sec < 120.0:
@@ -211,26 +215,26 @@ func setup_evolution(time_sec: float, tier_mult: float = 1.0) -> void:
 		_original_color = Color.WHITE
 	elif time_sec < 300.0:
 		evolution_tier = 1
-		max_hp *= 1.8 * tier_mult
-		contact_dps *= 1.45
-		armor = min(0.80, armor + 0.12)
-		speed *= 1.12
+		max_hp *= 2.2 * tier_mult
+		contact_dps *= 1.65
+		armor = min(0.85, armor + 0.15)
+		speed *= 1.16
 		_original_color = Color(1.0, 0.78, 0.78)
 	elif time_sec < 480.0:
 		evolution_tier = 2
-		max_hp *= 3.5 * tier_mult
-		contact_dps *= 2.2
-		armor = min(0.82, armor + 0.20)
-		speed *= 1.22
-		scale *= 1.18
+		max_hp *= 4.5 * tier_mult
+		contact_dps *= 2.6
+		armor = min(0.88, armor + 0.25)
+		speed *= 1.28
+		scale *= 1.20
 		_original_color = Color(0.85, 0.65, 1.0)
 	else:
 		evolution_tier = 3
-		max_hp *= 6.0 * tier_mult
-		contact_dps *= 3.2
-		armor = min(0.85, armor + 0.30)
-		speed *= 1.35
-		scale *= 1.30
+		max_hp *= 8.0 * tier_mult
+		contact_dps *= 4.0
+		armor = min(0.92, armor + 0.35)
+		speed *= 1.45
+		scale *= 1.35
 		_original_color = Color(1.0, 0.85, 0.45)
 		
 	hp = max_hp
@@ -381,7 +385,7 @@ func _physics_process(delta: float) -> void:
 						warn.modulate = Color(1, 0.2, 0.2)
 						warn.set_meta("boss_bomb", true)
 						
-				boss_attack_cooldown = 4.0 if boss_phase == 1 else 2.5
+				boss_attack_cooldown = 2.4 if boss_phase == 1 else 1.5
 				should_move = false
 				
 		elif boss_state == "blink":
@@ -415,14 +419,17 @@ func _physics_process(delta: float) -> void:
 				
 		elif boss_state == "charge_dash":
 			should_move = false
-			velocity = boss_charge_dir * 1200.0
+			velocity = boss_charge_dir * 1400.0
 			boss_state_timer -= delta
+			if dist < 65.0:
+				player.take_damage(110.0, true)
+				player._shake_intensity = 35.0
 			if boss_state_timer <= 0:
 				velocity = Vector2.ZERO
 				boss_charge_count -= 1
 				if boss_charge_count > 0:
 					boss_state = "charge_warn"
-					boss_state_timer = 0.5
+					boss_state_timer = 0.4
 					boss_charge_dir = (player.global_position - global_position).normalized()
 					boss_warning_line = Line2D.new()
 					get_tree().current_scene.add_child(boss_warning_line)
@@ -464,7 +471,7 @@ func _physics_process(delta: float) -> void:
 					if angle_diff > PI: angle_diff = TAU - angle_diff
 					var hit_angle = 40.0 / max(10.0, dist_p)
 					if angle_diff < hit_angle:
-						player.take_damage(60.0 * delta, true)
+						player.take_damage(180.0 * delta, true)
 						
 			if boss_state_timer <= 0:
 				if is_instance_valid(boss_warning_line): boss_warning_line.queue_free()
@@ -483,8 +490,8 @@ func _physics_process(delta: float) -> void:
 							p.scale = Vector2(4.0, 4.0)
 							get_tree().current_scene.add_child(p)
 						
-						if player.global_position.distance_to(n.global_position) < 60.0:
-							player.take_damage(40.0, true)
+						if player.global_position.distance_to(n.global_position) < 90.0:
+							player.take_damage(85.0, true)
 							
 						n.queue_free()
 				boss_state = "idle"
@@ -494,24 +501,27 @@ func _physics_process(delta: float) -> void:
 			should_move = false
 		sniper_cooldown -= delta
 		if sniper_cooldown <= 0:
-			sniper_cooldown = randf_range(1.2, 1.8)
+			sniper_cooldown = randf_range(0.85, 1.35)
 			_fire_sniper_projectile(to_player.normalized())
 			
 	if enemy_type == "bomber":
-		if bomber_fuse < 0 and dist < 85.0:
-			bomber_fuse = 0.22 # Fast near-instant fuse!
+		if bomber_fuse < 0 and dist < 155.0:
+			bomber_fuse = 0.38 # 380ms furious charge countdown!
 			
 		if bomber_fuse >= 0:
-			should_move = false
 			bomber_fuse -= delta
+			# Furious lunge charge directly towards player!
+			velocity = to_player.normalized() * (speed * 1.8)
+			should_move = false # Velocity is handled directly
 			
-			# Fast blink red via sprite modulate
+			# Fast strobe blink red via sprite modulate
 			if sprite:
-				if int(bomber_fuse * 20) % 2 == 0:
-					sprite.modulate = Color.RED
+				if int(bomber_fuse * 24) % 2 == 0:
+					sprite.modulate = Color(2.5, 0.2, 0.2)
 				else:
-					sprite.modulate = Color(1.0, 0.6, 0.6)
+					sprite.modulate = Color(1.0, 0.8, 0.2)
 			
+			queue_redraw()
 			if bomber_fuse < 0:
 				_explode_bomber()
 				return
@@ -519,10 +529,10 @@ func _physics_process(delta: float) -> void:
 	if enemy_type == "teleporter":
 		teleport_cooldown -= delta
 		if teleport_cooldown <= 0 and dist > 90.0:
-			teleport_cooldown = randf_range(1.6, 2.8)
+			teleport_cooldown = randf_range(1.1, 1.8)
 			var angle = randf() * TAU
 			global_position = player.global_position + Vector2(cos(angle), sin(angle)) * 35.0
-			_attack_timer = 0.3
+			_attack_timer = 0.15
 			
 	if enemy_type == "summoner":
 		if dist < 550.0:
@@ -537,8 +547,8 @@ func _physics_process(delta: float) -> void:
 		mega_summon_timer -= delta
 		
 		if summon_cooldown <= 0:
-			summon_cooldown = randf_range(2.0, 3.2) # 2x faster summon!
-			_attack_timer = 0.4
+			summon_cooldown = randf_range(1.4, 2.2) # Faster summon!
+			_attack_timer = 0.35
 			
 			var mc = Sprite2D.new()
 			mc.set_script(load("res://scripts/MagicCircle.gd"))
@@ -546,26 +556,26 @@ func _physics_process(delta: float) -> void:
 			mc.global_position = global_position
 			mc.setup("small")
 			
-			# Summon 3-5 Elemental Elite Minions
+			# Summon 5-8 Elemental Elite Minions
 			var elite_types = ["tank_blue", "tank_yellow", "sniper", "bomber", "teleporter", "swarm"]
 			var elements = ["void", "lightning", "ice", "dark"]
-			var count = randi_range(3, 5)
+			var count = randi_range(5, 8)
 			for i in range(count):
-				if GameManager.active_enemies.size() >= 160: break
+				if GameManager.active_enemies.size() >= 240: break
 				var e = load("res://scenes/EnemyCommon.tscn").instantiate()
 				get_tree().current_scene.add_child(e)
-				e.global_position = global_position + Vector2(randf_range(-140, 140), randf_range(-140, 140))
+				e.global_position = global_position + Vector2(randf_range(-150, 150), randf_range(-150, 150))
 				var chosen_type = elite_types[randi() % elite_types.size()]
 				var chosen_element = elements[randi() % elements.size()]
 				if e.has_method("setup_type"): e.setup_type(chosen_type)
-				e.max_hp *= 2.2
+				e.max_hp *= 2.6
 				e.hp = e.max_hp
-				e.speed *= 1.25
-				e.armor = min(0.75, e.armor + 0.15)
+				e.speed *= 1.35
+				e.armor = min(0.80, e.armor + 0.20)
 				if e.has_method("apply_element"): e.apply_element(chosen_element, 0.0)
 				
 		if mega_summon_timer <= 0:
-			mega_summon_timer = randf_range(18.0, 26.0)
+			mega_summon_timer = randf_range(12.0, 18.0)
 			_attack_timer = 0.8
 			
 			# 50% chance to trigger map-wide mega swarm
@@ -649,43 +659,47 @@ func _physics_process(delta: float) -> void:
 	var touch_r = effective_enemy_r + effective_player_r
 	var actual_dist_to_player: float = global_position.distance_squared_to(player.global_position)
 	if actual_dist_to_player < touch_r * touch_r and _contact_cooldown <= 0.0:
-		var base_strike_dmg = 34.0
-		var strike_cd = 0.45
+		var base_strike_dmg = 46.0
+		var strike_cd = 0.38
 		
 		match enemy_type:
 			"swarm":
-				base_strike_dmg = 22.0
-				strike_cd = 0.35
-			"tank_yellow":
-				base_strike_dmg = 52.0
-				strike_cd = 0.55
-			"tank_blue", "tank":
-				base_strike_dmg = 75.0 # Massive Executioner strike (~75% HP!)
-				strike_cd = 0.65
-			"sniper":
-				base_strike_dmg = 30.0
-				strike_cd = 0.5
-			"teleporter":
-				base_strike_dmg = 40.0
-				strike_cd = 0.4
-			"summoner":
 				base_strike_dmg = 32.0
-				strike_cd = 0.5
-			"mini_boss":
-				base_strike_dmg = 85.0
-				strike_cd = 0.65
-			"boss":
-				base_strike_dmg = 100.0
-				strike_cd = 0.75
-			_:
-				base_strike_dmg = 34.0
+				strike_cd = 0.26
+			"tank_yellow":
+				base_strike_dmg = 72.0
+				strike_cd = 0.50
+			"tank_blue", "tank":
+				base_strike_dmg = 110.0 # Heavy Executioner strike
+				strike_cd = 0.60
+			"sniper":
+				base_strike_dmg = 45.0
 				strike_cd = 0.45
+			"teleporter":
+				base_strike_dmg = 58.0
+				strike_cd = 0.35
+			"summoner":
+				base_strike_dmg = 48.0
+				strike_cd = 0.45
+			"bomber":
+				base_strike_dmg = 50.0
+				strike_cd = 0.35
+			"mini_boss":
+				base_strike_dmg = 115.0
+				strike_cd = 0.55
+			"boss":
+				base_strike_dmg = 150.0
+				strike_cd = 0.65
+			_:
+				base_strike_dmg = 46.0
+				strike_cd = 0.38
 				
 		var t_mins = GameManager.run_time / 60.0
-		# Contact damage scales HARD in late game - getting touched should be terrifying
-		var time_scaling = 1.0 + pow(t_mins, 1.5) * 0.45
-		if t_mins >= 5.0: time_scaling *= 1.4  # 5 min contact spike
-		if t_mins >= 8.0: time_scaling *= 1.8  # 8 min one-shot territory
+		# Contact damage scales HARD in late game - getting touched is terrifying
+		var time_scaling = 1.0 + pow(t_mins, 1.55) * 0.55
+		if t_mins >= 3.5: time_scaling *= 1.35  # 3.5 min contact spike
+		if t_mins >= 5.0: time_scaling *= 1.65  # 5 min contact wall
+		if t_mins >= 7.5: time_scaling *= 2.20  # 7.5 min one-shot territory
 		var final_strike_dmg = base_strike_dmg * time_scaling
 		
 		_contact_cooldown = strike_cd
@@ -697,9 +711,9 @@ func _physics_process(delta: float) -> void:
 			var push_dir = (player.global_position - global_position).normalized()
 			if push_dir.length() < 0.1: push_dir = Vector2.UP
 			if "external_force" in player:
-				player.external_force += push_dir * 160.0
+				player.external_force += push_dir * 180.0
 			else:
-				player.velocity += push_dir * 180.0
+				player.velocity += push_dir * 200.0
 
 func take_damage(amount: float) -> void:
 	if is_dying: return
@@ -731,42 +745,59 @@ func _fire_sniper_projectile(dir: Vector2) -> void:
 	get_tree().current_scene.add_child(proj)
 	proj.global_position = global_position
 	var t_mins = GameManager.run_time / 60.0
-	var dmg = 52.0 * (1.0 + t_mins * 0.25)
-	proj.setup(dir * 320.0, dmg)
+	var dmg = 68.0 * (1.0 + t_mins * 0.32)
+	proj.setup(dir * 420.0, dmg)
 	
 func _explode_bomber() -> void:
-	var blast_radius = 85.0
+	if is_exploded: return
+	is_exploded = true
+	
+	var blast_radius = 165.0 if not is_elite else 230.0
 	var blast_r_sq = blast_radius * blast_radius
 	var player = GameManager.player
 	
-	# Damage Player if in blast zone (Heavy Lethal Burst: 70 - 115 HP!)
+	# Damage Player if in blast zone (Devastating Lethal Burst: 110 - 200+ HP!)
 	if player and is_instance_valid(player):
 		var d_sq = global_position.distance_squared_to(player.global_position)
 		if d_sq < blast_r_sq:
 			var ratio = 1.0 - sqrt(d_sq) / blast_radius
-			var dmg = 70.0 + 45.0 * ratio
+			var dmg = (110.0 + 90.0 * ratio) * (1.0 + GameManager.current_map_tier * 0.30)
 			player.take_damage(dmg, true)
-			player._shake_intensity = 28.0
+			player._shake_intensity = 38.0
+			var push_dir = (player.global_position - global_position).normalized()
+			player.external_force += push_dir * (500.0 * ratio)
 	
-	# Splash damage to surrounding enemies / props
+	# Splash damage to surrounding enemies
 	for e in GameManager.active_enemies:
 		if not is_instance_valid(e) or e == self or e.is_queued_for_deletion(): continue
 		if global_position.distance_squared_to(e.global_position) < blast_r_sq:
 			if e.has_method("take_damage"):
-				e.take_damage(85.0)
+				e.take_damage(140.0)
 			if e.has_method("apply_knockback"):
 				var dir = (e.global_position - global_position).normalized()
-				e.apply_knockback(dir, 350.0)
+				e.apply_knockback(dir, 550.0)
+
+	# If elite bomber, release 6 explosive fireballs in 6 directions
+	if is_elite:
+		var proj_script = load("res://scripts/EnemyProjectile.gd")
+		for i in range(6):
+			var angle = (TAU / 6.0) * i
+			var p_dir = Vector2(cos(angle), sin(angle))
+			var proj = Node2D.new()
+			proj.set_script(proj_script)
+			get_tree().current_scene.add_child(proj)
+			proj.global_position = global_position
+			proj.setup(p_dir * 300.0, 35.0)
 
 	# Explosion visual effect
 	var p = DEATH_PARTICLE.instantiate()
 	if p:
 		p.position = global_position
-		p.modulate = Color(1.0, 0.25, 0.1)
-		p.scale = Vector2(5.0, 5.0)
+		p.modulate = Color(1.0, 0.35, 0.05)
+		p.scale = Vector2(3.0, 3.0)
 		get_tree().current_scene.add_child(p)
-
-	queue_free()
+		
+	_die()
 
 func _spawn_swarm_near(radius: float) -> void:
 	if get_tree().get_nodes_in_group("enemies").size() >= 250:
@@ -799,6 +830,7 @@ func _spawn_mega_swarm() -> void:
 				e.setup_type(type)
 			
 			# Make it elite
+			e.is_elite = true
 			e.max_hp *= 5.0
 			e.hp = e.max_hp
 			e.speed *= 1.5
@@ -1105,6 +1137,9 @@ func apply_burn(dps: float, duration: float) -> void:
 
 func _die() -> void:
 	if is_dying: return
+	if enemy_type == "bomber" and not is_exploded:
+		_explode_bomber()
+		return
 	is_dying = true
 	GameManager.unregister_enemy(self)
 	
@@ -1118,6 +1153,7 @@ func _die() -> void:
 		for n in get_tree().current_scene.get_children():
 			if n.has_meta("boss_bomb"):
 				n.queue_free()
+		GameManager.on_boss_slain()
 				
 	GameManager.register_kill()
 	
@@ -1199,7 +1235,10 @@ func _draw() -> void:
 		draw_arc(Vector2(0, orb_y), 6.0, 0, TAU, 16, Color(0.6, 0.2, 0.8), 2.0)
 		draw_circle(Vector2(0, orb_y), 2.0, Color(0.8, 0.4, 1.0))
 
-	# Bomber fuse flash (handled via sprite modulate now, but keep HP bar hint)
+	# Bomber fuse telegraph (expanding lethal danger circle)
 	if enemy_type == "bomber" and bomber_fuse >= 0:
-		var alpha = fmod(bomber_fuse * 3.14, 1.0)
-		draw_circle(Vector2(0, -hit_radius - 30), 5.0, Color(1.0, 0.3, 0.0, alpha))
+		var blast_r = 165.0 if not is_elite else 230.0
+		var progress = 1.0 - clampf(bomber_fuse / 0.40, 0.0, 1.0)
+		draw_arc(Vector2.ZERO, blast_r, 0, TAU, 32, Color(1.0, 0.15, 0.1, 0.7), 2.5)
+		draw_circle(Vector2.ZERO, blast_r * progress, Color(1.0, 0.3, 0.05, 0.25))
+		draw_circle(Vector2(0, -hit_radius - 30), 7.0, Color(2.0, 0.4, 0.0, 0.9))

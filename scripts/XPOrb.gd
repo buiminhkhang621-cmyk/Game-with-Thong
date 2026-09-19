@@ -21,8 +21,8 @@ func _ready() -> void:
 	queue_redraw()
 
 func add_value(amount: int) -> void:
-	value = min(value + amount, 35) # Cap single orb value so it never jumps multiple levels at once
-	var s = clampf(1.0 + float(value) * 0.03, 1.0, 2.2)
+	value = min(value + amount, 10) # Cap single orb value so it never jumps multiple levels at once
+	var s = clampf(1.0 + float(value) * 0.05, 1.0, 1.8)
 	scale = Vector2(s, s)
 	queue_redraw()
 
@@ -81,7 +81,7 @@ static func spawn_or_merge(pos: Vector2, val: int, parent: Node, orb_scene: Pack
 		if i < 0: break
 		var o = all_orbs[i]
 		if is_instance_valid(o) and not o.is_queued_for_deletion() and not o.is_collected:
-			if o.value < 35 and pos.distance_squared_to(o.global_position) < 50.0 * 50.0:
+			if o.value < 10 and pos.distance_squared_to(o.global_position) < 50.0 * 50.0:
 				o.add_value(val)
 				return
 
@@ -104,5 +104,5 @@ static func spawn_or_merge(pos: Vector2, val: int, parent: Node, orb_scene: Pack
 		var orb = orb_scene.instantiate()
 		parent.add_child(orb)
 		orb.global_position = pos
-		orb.value = val
+		orb.value = min(val, 10)
 		orb.queue_redraw()
