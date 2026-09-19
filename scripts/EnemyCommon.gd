@@ -1112,6 +1112,7 @@ func apply_burn(dps: float, duration: float) -> void:
 func _die() -> void:
 	if is_dying: return
 	is_dying = true
+	GameManager.unregister_enemy(self)
 	
 	# If this enemy died while void-infected, collapse & propagate before removal
 	if is_void_infected:
