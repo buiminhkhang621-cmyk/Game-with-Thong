@@ -67,25 +67,10 @@ func _create_weapon_slot(skill_id: String, level: int, rune: String) -> Control:
 	var slot = Panel.new()
 	slot.custom_minimum_size = Vector2(48, 48)
 	
-	# Antique Gilded Obsidian Slot
-	var sb = StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.08, 0.11, 0.95)
-	sb.border_width_left = 2
-	sb.border_width_right = 2
-	sb.border_width_top = 2
-	sb.border_width_bottom = 3
-	
 	var border_col = Color(0.65, 0.52, 0.28) # Antique Gold default
 	if rune != "" and ELEMENT_COLORS.has(rune):
 		border_col = ELEMENT_COLORS[rune]
-	sb.border_color = border_col
-	sb.corner_radius_top_left = 6
-	sb.corner_radius_top_right = 6
-	sb.corner_radius_bottom_right = 6
-	sb.corner_radius_bottom_left = 6
-	sb.shadow_size = 6
-	sb.shadow_color = Color(border_col.r * 0.4, border_col.g * 0.4, border_col.b * 0.4, 0.4)
-	slot.add_theme_stylebox_override("panel", sb)
+	slot.add_theme_stylebox_override("panel", UITheme.create_stone_slot(border_col))
 	
 	# Icon drawer
 	var icon = Control.new()

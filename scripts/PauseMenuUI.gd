@@ -67,7 +67,7 @@ func _ready() -> void:
 	# Bottom Buttons Bar
 	var btn_bar = HBoxContainer.new()
 	btn_bar.position = Vector2(30, 490)
-	btn_bar.size = Vector2(840, 45)
+	btn_bar.size = Vector2(840, 52)
 	btn_bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	btn_bar.add_theme_constant_override("separation", 30)
 	panel.add_child(btn_bar)
@@ -75,21 +75,21 @@ func _ready() -> void:
 	var resume_btn = Button.new()
 	UITheme.apply_button_theme(resume_btn)
 	resume_btn.text = "RESUME"
-	resume_btn.custom_minimum_size = Vector2(160, 40)
+	resume_btn.custom_minimum_size = Vector2(180, 48)
 	resume_btn.pressed.connect(_on_resume_pressed)
 	btn_bar.add_child(resume_btn)
 	
 	var settings_btn = Button.new()
 	UITheme.apply_button_theme(settings_btn)
 	settings_btn.text = "SETTINGS"
-	settings_btn.custom_minimum_size = Vector2(160, 40)
+	settings_btn.custom_minimum_size = Vector2(180, 48)
 	settings_btn.pressed.connect(_on_settings_pressed)
 	btn_bar.add_child(settings_btn)
 	
 	var quit_btn = Button.new()
 	UITheme.apply_button_theme(quit_btn)
 	quit_btn.text = "ABANDON RUN"
-	quit_btn.custom_minimum_size = Vector2(160, 40)
+	quit_btn.custom_minimum_size = Vector2(180, 48)
 	quit_btn.pressed.connect(_on_quit_pressed)
 	btn_bar.add_child(quit_btn)
 

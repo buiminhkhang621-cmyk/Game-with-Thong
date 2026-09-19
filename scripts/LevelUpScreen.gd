@@ -65,25 +65,8 @@ class UpgradeCard extends PanelContainer:
 		gui_input.connect(_on_gui_input)
 
 	func _build_ui() -> void:
-		# Card Panel Style (Obsidian stone with antique gold metallic bevel)
-		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color(0.08, 0.08, 0.11, 0.97) # Deep Obsidian Core
-		sb.border_width_left = 3
-		sb.border_width_right = 3
-		sb.border_width_top = 3
-		sb.border_width_bottom = 5
-		sb.border_color = border_color
-		sb.corner_radius_top_left = 8
-		sb.corner_radius_top_right = 8
-		sb.corner_radius_bottom_right = 8
-		sb.corner_radius_bottom_left = 8
-		sb.shadow_size = 14
-		sb.shadow_color = Color(0, 0, 0, 0.8)
-		sb.content_margin_left = 18
-		sb.content_margin_right = 18
-		sb.content_margin_top = 22
-		sb.content_margin_bottom = 22
-		add_theme_stylebox_override("panel", sb)
+		# Card Panel Style (Ancient mossy carved stone with elemental rarity tint)
+		add_theme_stylebox_override("panel", UITheme.create_stone_card(border_color))
 		
 		var vbox = VBoxContainer.new()
 		vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
@@ -281,19 +264,19 @@ func _ready() -> void:
 	
 	reroll_btn = Button.new()
 	UITheme.apply_button_theme(reroll_btn)
-	reroll_btn.custom_minimum_size = Vector2(150, 44)
+	reroll_btn.custom_minimum_size = Vector2(160, 48)
 	reroll_btn.pressed.connect(_on_reroll_pressed)
 	bottom_bar.add_child(reroll_btn)
 	
 	banish_btn = Button.new()
 	UITheme.apply_button_theme(banish_btn)
-	banish_btn.custom_minimum_size = Vector2(150, 44)
+	banish_btn.custom_minimum_size = Vector2(160, 48)
 	banish_btn.pressed.connect(_on_banish_pressed)
 	bottom_bar.add_child(banish_btn)
 	
 	skip_btn = Button.new()
 	UITheme.apply_button_theme(skip_btn)
-	skip_btn.custom_minimum_size = Vector2(150, 44)
+	skip_btn.custom_minimum_size = Vector2(160, 48)
 	skip_btn.text = "SKIP (+25 HP)"
 	skip_btn.pressed.connect(_on_skip_pressed)
 	bottom_bar.add_child(skip_btn)

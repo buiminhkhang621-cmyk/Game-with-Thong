@@ -97,9 +97,9 @@ func _ready() -> void:
 	
 	var back_btn = Button.new()
 	back_btn.text = "⮌ BACK"
-	back_btn.custom_minimum_size = Vector2(120, 38)
+	back_btn.custom_minimum_size = Vector2(140, 48)
 	UITheme.apply_button_theme(back_btn)
-	back_btn.position = Vector2(1100, 38)
+	back_btn.position = Vector2(1080, 32)
 	back_btn.pressed.connect(_on_back_pressed)
 	add_child(back_btn)
 	

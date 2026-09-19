@@ -147,7 +147,7 @@ func _ready() -> void:
 		
 	var menu_btn = Button.new()
 	menu_btn.text = "✦ RETURN TO MENU ✦"
-	menu_btn.custom_minimum_size = Vector2(260, 44)
+	menu_btn.custom_minimum_size = Vector2(260, 52)
 	menu_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	menu_btn.add_theme_font_size_override("font_size", 16)
 	UITheme.apply_button_theme(menu_btn)

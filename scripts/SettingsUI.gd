@@ -85,7 +85,7 @@ func _ready() -> void:
 	for res in [Vector2i(1280, 720), Vector2i(1600, 900), Vector2i(1920, 1080)]:
 		var b = Button.new()
 		b.text = "%dx%d" % [res.x, res.y]
-		b.custom_minimum_size = Vector2(95, 30)
+		b.custom_minimum_size = Vector2(105, 38)
 		UITheme.apply_button_theme(b)
 		var target_res = res
 		b.pressed.connect(func():
@@ -125,7 +125,7 @@ func _ready() -> void:
 	
 	var test_sfx_btn = Button.new()
 	test_sfx_btn.text = "Test Sound (Electric Shock)"
-	test_sfx_btn.custom_minimum_size = Vector2(200, 30)
+	test_sfx_btn.custom_minimum_size = Vector2(210, 38)
 	UITheme.apply_button_theme(test_sfx_btn)
 	test_sfx_btn.pressed.connect(func():
 		GameManager.play_sfx(GameManager.sfx_electric_shock, randf_range(0.95, 1.05))
@@ -149,7 +149,7 @@ func _ready() -> void:
 	
 	var test_shake_btn = Button.new()
 	test_shake_btn.text = "Test Shake"
-	test_shake_btn.custom_minimum_size = Vector2(110, 28)
+	test_shake_btn.custom_minimum_size = Vector2(120, 38)
 	UITheme.apply_button_theme(test_shake_btn)
 	test_shake_btn.pressed.connect(_on_test_shake)
 	shake_row.add_child(test_shake_btn)
@@ -180,7 +180,7 @@ func _ready() -> void:
 	
 	var back_btn = Button.new()
 	back_btn.text = "SAVE & RETURN"
-	back_btn.custom_minimum_size = Vector2(180, 44)
+	back_btn.custom_minimum_size = Vector2(190, 48)
 	UITheme.apply_button_theme(back_btn)
 	back_btn.pressed.connect(_on_back_pressed)
 	bottom_row.add_child(back_btn)
