@@ -335,11 +335,11 @@ func grant_xp(amount: int) -> void:
 		level_changed.emit(level)
 		pending_level_ups += 1
 
-	if pending_level_ups > 0 and not paused_for_levelup:
-		_trigger_level_up()
-
 	xp_changed.emit(xp, xp_to_next)
 	_check_quest("level", level)
+
+	if pending_level_ups > 0 and not paused_for_levelup:
+		_trigger_level_up()
 
 
 func register_kill() -> void:
@@ -750,7 +750,7 @@ func grant_random_upgrades(count: int) -> Array:
 		pool.append({"type": "elixir_speed", "name": "Elixir of the Wind (+12% Speed)", "weight": 2})
 		pool.append({"type": "elixir_crit", "name": "Elixir of Fortune (+15% Crit)", "weight": 2})
 		pool.append({"type": "elixir_hp", "name": "Elixir of the Titan (+50 Max HP)", "weight": 2})
-		pool.append({"type": "elixir_xp", "name": "Essence of the Void (+150 Bonus XP)", "weight": 2})
+		pool.append({"type": "elixir_might_titan", "name": "Elixir of Titan (+20% Might)", "weight": 2})
 		
 		# Weighted pick
 		var total_w = 0
@@ -805,9 +805,9 @@ func grant_random_upgrades(count: int) -> Array:
 				stolen_dark_hp += 50.0
 				if player: player._update_max_hp(); player.heal(50.0)
 				granted.append("ELIXIR OF TITAN (+50 MAX HP)")
-			"elixir_xp":
-				grant_xp(150)
-				granted.append("ESSENCE OF VOID (+150 BONUS XP)")
+			"elixir_might_titan":
+				stolen_dark_dmg += 0.20
+				granted.append("ELIXIR OF TITAN (+20% MIGHT)")
 				
 	if player:
 		player._update_max_hp()

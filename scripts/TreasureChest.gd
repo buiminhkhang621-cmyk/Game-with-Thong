@@ -8,19 +8,17 @@ var anim_sparkles: float = 0.0
 func _ready() -> void:
 	float_offset = randf() * TAU
 	add_to_group("treasure_chests")
-	add_to_group("destructibles")
 	
 	var col = CollisionShape2D.new()
 	var shape = CircleShape2D.new()
-	shape.radius = 36.0
+	shape.radius = 32.0
 	col.shape = shape
 	add_child(col)
 	
-	collision_layer = 4
-	collision_mask = 3 # Overlaps with Player (layer 2) and Projectiles/Weapons (layer 1)
+	collision_layer = 8
+	collision_mask = 2 # Player body only (layer 2)
 	
 	body_entered.connect(_on_body_entered)
-	area_entered.connect(_on_area_entered)
 	queue_redraw()
 
 func _process(delta: float) -> void:
@@ -30,34 +28,28 @@ func _process(delta: float) -> void:
 	float_offset += delta * 3.0
 	anim_sparkles += delta * 5.0
 	
-	# Proximity Auto-Trigger (100% reliable contact trigger)
+	# Proximity Auto-Trigger when player walks over the chest
 	var player = GameManager.player
 	if player and is_instance_valid(player):
 		var dist_sq = global_position.distance_squared_to(player.global_position)
-		if dist_sq <= 55.0 * 55.0:
+		if dist_sq <= 42.0 * 42.0:
 			_open_chest()
 			return
 			
 	queue_redraw()
 
-func take_damage(_amount: float) -> void:
-	if not is_opened:
-		_open_chest()
-
-func _on_body_entered(_body: Node2D) -> void:
-	if not is_opened:
-		_open_chest()
-
-func _on_area_entered(_area: Area2D) -> void:
-	if not is_opened:
+func _on_body_entered(body: Node2D) -> void:
+	if not is_opened and (body is Player or body.name == "Player"):
 		_open_chest()
 
 func _open_chest() -> void:
 	if is_opened:
 		return
 	is_opened = true
+	set_process(false)
+	visible = false
 	
-	# Burst particle / flash
+	# Pause and open ChestUI
 	get_tree().paused = true
 	var script = load("res://scripts/ChestUI.gd")
 	if script:
@@ -67,6 +59,7 @@ func _open_chest() -> void:
 	queue_free()
 
 func _draw() -> void:
+	if is_opened: return
 	var y_off = sin(float_offset) * 3.5
 	var pos = Vector2(0, y_off)
 	var pulse = 0.85 + sin(anim_sparkles) * 0.15
@@ -98,7 +91,3 @@ func _draw() -> void:
 	
 	# 4. Central Relic Lock / Glowing Sigil Gem
 	draw_circle(pos + Vector2(0, 4), 5.5, Color(1.0, 0.85, 0.35))
-	draw_circle(pos + Vector2(0, 4), 3.0, Color(0.85, 0.25, 0.95)) # Amethyst Core Gem
-	
-	# 5. Floating Interaction Hint
-	draw_arc(pos, 44.0, -PI * 0.75, -PI * 0.25, 12, Color(1.0, 0.9, 0.4, 0.6 * pulse), 2.0)

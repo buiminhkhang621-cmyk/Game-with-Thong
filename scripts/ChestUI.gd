@@ -110,5 +110,6 @@ func _ready() -> void:
 	main_vbox.add_child(claim_btn)
 
 func _on_claim_pressed() -> void:
-	get_tree().paused = false
+	if not GameManager.paused_for_levelup:
+		get_tree().paused = false
 	queue_free()

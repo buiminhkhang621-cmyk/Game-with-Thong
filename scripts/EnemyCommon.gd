@@ -1122,7 +1122,8 @@ func _die() -> void:
 	GameManager.register_kill()
 	
 	if enemy_type == "golden_goblin":
-		var chest = load("res://scripts/TreasureChest.gd").new()
+		var chest = Area2D.new()
+		chest.set_script(load("res://scripts/TreasureChest.gd"))
 		chest.global_position = global_position
 		get_tree().current_scene.add_child(chest)
 		GameManager.wave_event_triggered.emit("GOBLIN SLAIN!", "The Golden Goblin dropped an ancient Treasure Chest!")
@@ -1149,12 +1150,12 @@ func _die() -> void:
 		get_tree().current_scene.add_child(r)
 		r.global_position = global_position
 
-	# Treasure Chest drop (100% for mini-boss/boss, 15% for heavy tanks/summoners)
+	# Treasure Chest drop (100% for mini-boss/boss, 1% rare drop for heavy tanks/summoners)
 	var chest_chance = 0.0
 	if enemy_type == "boss" or enemy_type == "mini_boss":
 		chest_chance = 1.0
 	elif enemy_type == "tank_blue" or enemy_type == "summoner":
-		chest_chance = 0.15
+		chest_chance = 0.01
 		
 	if randf() < chest_chance:
 		var chest = Area2D.new()

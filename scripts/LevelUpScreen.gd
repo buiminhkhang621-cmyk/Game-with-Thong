@@ -327,7 +327,8 @@ func _on_card_pressed(idx: int) -> void:
 		return
 
 	GameManager.apply_choice(choice)
-	_finish_level_up()
+	if not GameManager.paused_for_levelup:
+		hide()
 
 func _on_reroll_pressed() -> void:
 	if GameManager.rerolls_left > 0:
@@ -345,14 +346,6 @@ func _on_banish_pressed() -> void:
 			subtitle_label.text = "CHOOSE A SACRED BLESSING"
 
 func _on_skip_pressed() -> void:
-	if GameManager.player:
-		GameManager.player.heal(25.0)
-	_finish_level_up()
-
-func _finish_level_up() -> void:
-	if GameManager.pending_level_ups > 0:
-		GameManager._trigger_level_up()
-	else:
-		GameManager.paused_for_levelup = false
-		get_tree().paused = false
+	GameManager.skip_level_up()
+	if not GameManager.paused_for_levelup:
 		hide()
