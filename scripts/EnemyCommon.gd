@@ -253,7 +253,7 @@ func _ready() -> void:
 	col.shape = shape
 	add_child(col)
 	collision_layer = 4
-	collision_mask = 5 # 1 (Obstacles) + 4 (Enemies)
+	collision_mask = 1 # 1 (Obstacles only - removes enemy-vs-enemy physics collision bottleneck)
 
 	queue_redraw()
 
@@ -551,7 +551,7 @@ func _physics_process(delta: float) -> void:
 			var elements = ["void", "lightning", "ice", "dark"]
 			var count = randi_range(3, 5)
 			for i in range(count):
-				if get_tree().get_nodes_in_group("enemies").size() >= 250: break
+				if GameManager.active_enemies.size() >= 160: break
 				var e = load("res://scenes/EnemyCommon.tscn").instantiate()
 				get_tree().current_scene.add_child(e)
 				e.global_position = global_position + Vector2(randf_range(-140, 140), randf_range(-140, 140))
@@ -598,13 +598,6 @@ func _physics_process(delta: float) -> void:
 		velocity = Vector2.ZERO
 		
 	move_and_slide()
-
-	# Soft repulsion when bumping into other enemies so horde spreads out naturally like liquid
-	for i in range(min(2, get_slide_collision_count())):
-		var col = get_slide_collision(i)
-		var collider = col.get_collider()
-		if collider and collider.is_in_group("enemies"):
-			velocity += col.get_normal() * (current_speed * 0.35)
 
 	# Update sprite direction and procedural animation
 	if sprite:
@@ -826,8 +819,8 @@ func apply_element(type: String, dmg: float) -> void:
 		
 	match type:
 		"lightning":
-			var jumps = 5 if GameManager.has_rune_resonance("lightning") else 2
-			var chain_dmg = dmg * 0.6 if GameManager.has_rune_resonance("lightning") else dmg * 0.3
+			var jumps = 3 if GameManager.has_rune_resonance("lightning") else 2
+			var chain_dmg = dmg * 0.5 if GameManager.has_rune_resonance("lightning") else dmg * 0.3
 			
 			var current: Node = self
 			var hit_enemies = [self]
@@ -839,9 +832,10 @@ func apply_element(type: String, dmg: float) -> void:
 					if next_target.has_method("take_damage"):
 						next_target.take_damage(chain_dmg)
 						
-					var fx = ElementalVisualEffect.new()
-					get_tree().current_scene.add_child(fx)
-					fx.setup_lightning(current.global_position, next_target.global_position)
+					if ElementalVisualEffect.active_count < 12:
+						var fx = ElementalVisualEffect.new()
+						get_tree().current_scene.add_child(fx)
+						fx.setup_lightning(current.global_position, next_target.global_position)
 					current = next_target
 				else:
 					break
@@ -1133,27 +1127,7 @@ func _die() -> void:
 		get_tree().current_scene.add_child(chest)
 		GameManager.wave_event_triggered.emit("GOBLIN SLAIN!", "The Golden Goblin dropped an ancient Treasure Chest!")
 	
-	var current_orbs = get_tree().get_nodes_in_group("xp_orbs")
-	if current_orbs.size() < 250:
-		var orb = XP_ORB_SCENE.instantiate()
-		get_tree().current_scene.add_child(orb)
-		orb.global_position = global_position
-		orb.value = xp_value
-	else:
-		# Merge with the nearest existing orb to save memory while keeping XP accessible
-		var best_orb = null
-		var best_d_sq = 1e9
-		for o in current_orbs:
-			if o.is_queued_for_deletion(): continue
-			var d_sq = global_position.distance_squared_to(o.global_position)
-			if d_sq < best_d_sq:
-				best_d_sq = d_sq
-				best_orb = o
-				
-		if best_orb:
-			best_orb.value += xp_value
-			var s = min(3.0, 1.0 + best_orb.value * 0.02)
-			best_orb.scale = Vector2(s, s)
+	XPOrb.spawn_or_merge(global_position, xp_value, get_tree().current_scene, XP_ORB_SCENE)
 
 	if enemy_type == "summoner" and sprite:
 		sprite.play("death")

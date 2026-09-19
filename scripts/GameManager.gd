@@ -547,6 +547,14 @@ func _trigger_level_up() -> void:
 	leveled_up_choices.emit(_build_level_up_choices())
 
 
+func has_lightning_rune() -> bool:
+	if unlocked_runes.has("lightning"):
+		return true
+	for s in active_skills:
+		if s.has("runes") and s.runes.has("lightning"):
+			return true
+	return false
+
 func _build_level_up_choices() -> Array:
 	var pool: Array = []
 
@@ -572,6 +580,9 @@ func _build_level_up_choices() -> Array:
 	if active_skills.size() < MAX_ACTIVE_SLOTS:
 		for data in available_active_skills:
 			if not banished_ids.has(data.id) and not _has_active(data.id):
+				# Chain Lightning is EXCLUSIVE to players with the Lightning Rune!
+				if (data.id == "lightning" or data.id == "chain_lightning") and not has_lightning_rune():
+					continue
 				pool.append({
 					"weight": 2, "type": "new_active", "skill_id": data.id,
 					"tag": "New Skill", "title": data.display_name,
@@ -579,10 +590,14 @@ func _build_level_up_choices() -> Array:
 				})
 		
 		# Ensure new weapons are also added to available_active_skills pool dynamically if they are not there
-		var extra_skills = ["res://resources/skills/chain_lightning.tres", "res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+		var extra_skills = ["res://resources/skills/throwing_knife.tres", "res://resources/skills/throwing_axe.tres", "res://resources/skills/elemental_orbs.tres", "res://resources/skills/whip.tres"]
+		if has_lightning_rune():
+			extra_skills.append("res://resources/skills/chain_lightning.tres")
 		for path in extra_skills:
 			var data = load(path)
 			if data and not banished_ids.has(data.id) and not _has_active(data.id) and not available_active_skills.has(data):
+				if (data.id == "lightning" or data.id == "chain_lightning") and not has_lightning_rune():
+					continue
 				pool.append({
 					"weight": 2, "type": "new_active", "skill_id": data.id,
 					"tag": "New Skill", "title": data.display_name,
@@ -929,9 +944,16 @@ var sfx_electric_shock: AudioStream = preload("res://music/sfx/electric_shock.mp
 var sfx_level_up: AudioStream = preload("res://music/sfx/level_up.mp3")
 var sfx_death: AudioStream = preload("res://music/sfx/death.mp3")
 var sfx_achievement: AudioStream = preload("res://music/sfx/achivement.mp3")
+var _last_sfx_times: Dictionary = {}
 
 func play_sfx(stream: AudioStream, pitch_scale: float = 1.0) -> void:
 	if not stream: return
+	var t = Time.get_ticks_msec() / 1000.0
+	var last = _last_sfx_times.get(stream, 0.0)
+	if t - last < 0.08: # Throttle rapid duplicate sfx within 80ms
+		return
+	_last_sfx_times[stream] = t
+	
 	var p = AudioStreamPlayer.new()
 	p.stream = stream
 	p.bus = "SFX"

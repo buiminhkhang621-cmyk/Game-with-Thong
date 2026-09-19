@@ -437,7 +437,7 @@ func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 	
 	_last_fire_time[data.id] = t
 	var dmg: float = (data.base_damage + data.damage_per_level * level) * (1.0 + GameManager.passive_value("damage"))
-	var jumps = 2 + level
+	var jumps = min(2 + int(level * 0.5), 6)
 	
 	var current = first_target
 	var hit_enemies = [current]
@@ -448,7 +448,7 @@ func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 		
 	for i in range(jumps):
 		var next_target: Node = null
-		var best_dist_sq := 150.0 * 150.0
+		var best_dist_sq := 160.0 * 160.0
 		for e in _frame_enemies:
 			if not is_instance_valid(e) or e.is_queued_for_deletion():
 				continue
@@ -471,23 +471,15 @@ func _fire_lightning(_s: Dictionary, data: SkillData, level: int) -> void:
 		else:
 			break
 			
-	# Spawn stunning elemental lightning visual effect for each jump segment
-	var target_parent = get_tree().current_scene if (get_tree() and get_tree().current_scene) else get_parent()
-	if target_parent and path.size() >= 2:
-		for j in range(path.size() - 1):
-			var fx = ElementalVisualEffect.new()
-			target_parent.add_child(fx)
-			fx.setup_lightning(path[j], path[j+1], j)
-			
-	# Play high voltage lightning audio
+	# Play high voltage lightning audio (rate-limited via GameManager)
 	GameManager.play_sfx(GameManager.sfx_electric_shock, randf_range(0.95, 1.15))
 	
 	# Subtle screen shake
 	if player and GameManager.setting_screen_shake:
-		player._shake_intensity = max(player._shake_intensity, 4.0)
+		player._shake_intensity = max(player._shake_intensity, 3.5)
 
-	# Store for drawing
-	_lightning_visuals.append({"path": path, "time": 0.25, "color": data.color})
+	# Lightning is rendered via batch polyline in _draw() for maximum 60+ FPS performance
+	_lightning_visuals.append({"path": path, "time": 0.20, "color": data.color})
 
 func _fire_earthquake(_s: Dictionary, data: SkillData, level: int) -> void:
 	var last: float = _last_fire_time.get(data.id, 0.0)
@@ -607,6 +599,9 @@ func _draw() -> void:
 		for p in v.path:
 			local_path.append(p - global_position)
 		if local_path.size() >= 2:
-			draw_polyline(local_path, Color(0.2, 0.8, 1.0, 0.45), 7.0)
-			draw_polyline(local_path, v.color, 3.5)
-			draw_polyline(local_path, Color.WHITE, 1.5)
+			var alpha: float = clampf(v.time / 0.20, 0.0, 1.0)
+			draw_polyline(local_path, Color(0.15, 0.75, 1.0, alpha * 0.45), 8.0)
+			draw_polyline(local_path, Color(1.0, 0.95, 0.35, alpha * 0.85), 3.5)
+			draw_polyline(local_path, Color(1.0, 1.0, 1.0, alpha), 1.5)
+			for p in local_path:
+				draw_circle(p, 3.5 * alpha, Color(1.0, 1.0, 0.8, alpha))

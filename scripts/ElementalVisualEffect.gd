@@ -1,17 +1,28 @@
 extends Node2D
 class_name ElementalVisualEffect
 
+static var active_count: int = 0
+const MAX_ACTIVE: int = 14
+
 var effect_type: String = "lightning"
 var life_time: float = 0.0
-var max_life: float = 0.45
+var max_life: float = 0.35
 var data: Dictionary = {}
+
+func _enter_tree() -> void:
+	active_count += 1
+	if active_count > MAX_ACTIVE:
+		queue_free()
+
+func _exit_tree() -> void:
+	active_count = max(0, active_count - 1)
 
 # 1. Base Elemental Setups
 func setup_lightning(start_pos: Vector2, target_pos: Vector2, chain_count: int = 1) -> void:
 	effect_type = "lightning"
 	z_index = 25
 	global_position = start_pos
-	max_life = 0.32
+	max_life = 0.18
 	var target = target_pos - start_pos
 	data["target"] = target
 	data["chains"] = chain_count

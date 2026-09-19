@@ -3,7 +3,7 @@ extends Node2D
 @export var enemy_scene: PackedScene
 @export var spawn_interval_start: float = 0.85
 @export var spawn_interval_min: float = 0.12
-@export var max_enemies: int = 400
+@export var max_enemies: int = 200
 @export var spawn_radius: float = 580.0
 
 var _timer: float = 0.0
@@ -35,7 +35,7 @@ const WAVES = [
 		"types": [
 			{"type": "normal", "weight": 100}
 		],
-		"max_enemies": 38,
+		"max_enemies": 35,
 		"spawn_interval": 0.85,
 		"batch_size": 2,
 	},
@@ -49,7 +49,7 @@ const WAVES = [
 			{"type": "swarm", "weight": 70},
 			{"type": "normal", "weight": 30}
 		],
-		"max_enemies": 65,
+		"max_enemies": 50,
 		"spawn_interval": 0.60,
 		"batch_size": 3,
 	},
@@ -64,7 +64,7 @@ const WAVES = [
 			{"type": "normal", "weight": 35},
 			{"type": "swarm", "weight": 25}
 		],
-		"max_enemies": 95,
+		"max_enemies": 75,
 		"spawn_interval": 0.48,
 		"batch_size": 3,
 	},
@@ -79,7 +79,7 @@ const WAVES = [
 			{"type": "normal", "weight": 35},
 			{"type": "tank_yellow", "weight": 25}
 		],
-		"max_enemies": 130,
+		"max_enemies": 100,
 		"spawn_interval": 0.38,
 		"batch_size": 4,
 	},
@@ -94,7 +94,7 @@ const WAVES = [
 			{"type": "swarm", "weight": 35},
 			{"type": "normal", "weight": 25}
 		],
-		"max_enemies": 165,
+		"max_enemies": 125,
 		"spawn_interval": 0.30,
 		"batch_size": 4,
 	},
@@ -109,9 +109,9 @@ const WAVES = [
 			{"type": "tank_yellow", "weight": 30},
 			{"type": "normal", "weight": 45}
 		],
-		"max_enemies": 240,
-		"spawn_interval": 0.20,
-		"batch_size": 6,
+		"max_enemies": 150,
+		"spawn_interval": 0.22,
+		"batch_size": 5,
 	},
 	{
 		"start_time": 390.0,
@@ -125,9 +125,9 @@ const WAVES = [
 			{"type": "bomber", "weight": 20},
 			{"type": "tank_blue", "weight": 20}
 		],
-		"max_enemies": 300,
-		"spawn_interval": 0.15,
-		"batch_size": 7,
+		"max_enemies": 170,
+		"spawn_interval": 0.18,
+		"batch_size": 5,
 	},
 	{
 		"start_time": 480.0,
@@ -142,9 +142,9 @@ const WAVES = [
 			{"type": "sniper", "weight": 20},
 			{"type": "swarm", "weight": 20}
 		],
-		"max_enemies": 350,
-		"spawn_interval": 0.12,
-		"batch_size": 8,
+		"max_enemies": 185,
+		"spawn_interval": 0.15,
+		"batch_size": 6,
 	},
 	{
 		"start_time": 600.0,
@@ -158,9 +158,9 @@ const WAVES = [
 			{"type": "bomber", "weight": 25},
 			{"type": "teleporter", "weight": 25}
 		],
-		"max_enemies": 400,
-		"spawn_interval": 0.08,
-		"batch_size": 10,
+		"max_enemies": 200,
+		"spawn_interval": 0.12,
+		"batch_size": 6,
 	}
 ]
 
