@@ -15,14 +15,16 @@ func setup(data: Dictionary) -> void:
 func _process(delta: float) -> void:
 	timer += delta
 	var cycle = fmod(timer, interval)
+	var was_venting = is_venting
 	
 	if cycle > interval - 1.2 and cycle < interval:
 		is_venting = true
 		_apply_vent_damage(delta)
+		queue_redraw()
 	else:
 		is_venting = false
-		
-	queue_redraw()
+		if was_venting:
+			queue_redraw()
 
 func _apply_vent_damage(delta: float) -> void:
 	var r_sq = 32.0 * 32.0

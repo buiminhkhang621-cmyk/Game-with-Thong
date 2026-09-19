@@ -289,10 +289,16 @@ func _physics_process(delta: float) -> void:
 	if _void_proc_cooldown > 0:
 		_void_proc_cooldown -= delta
 	
+	# Rate-limited redraw for dynamic visual indicators (void ring/gauge, bomber fuse, void aura)
+	if is_void_infected or active_auras.has("void") or (enemy_type == "bomber" and bomber_fuse >= 0):
+		_redraw_timer += delta
+		if _redraw_timer >= 0.066: # ~15 FPS redraw for visual indicators
+			_redraw_timer = 0.0
+			queue_redraw()
+
 	# Void Infection 1.5s countdown before collapse & 90%/10% split
 	if is_void_infected and not is_dying:
 		void_infection_timer -= delta
-		queue_redraw()
 		if void_infection_timer <= 0.0:
 			_trigger_void_collapse()
 			if is_dying:
@@ -505,7 +511,6 @@ func _physics_process(delta: float) -> void:
 					sprite.modulate = Color.RED
 				else:
 					sprite.modulate = Color(1.0, 0.6, 0.6)
-			queue_redraw()
 			
 			if bomber_fuse < 0:
 				_explode_bomber()
@@ -645,7 +650,6 @@ func _physics_process(delta: float) -> void:
 			color = target_color
 			if sprite:
 				sprite.modulate = color
-			queue_redraw()
 
 	var effective_enemy_r = max(10.0, hit_radius * 0.75)
 	var effective_player_r = 12.0
